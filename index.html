@@ -1,0 +1,1353 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>매안초 층별 3D 모형</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600&display=swap">
+<style>
+/* Layout: full-bleed 3D viewport, one compact control card floating top-left */
+:root{
+  --bg:#e9ece8; --panel:#fbfcfa; --fg:#23282a; --muted:#69716f; --line:#d3d8d4; --accent:#2f6f62;
+  --scene:#e4e8e3; --ground:#d7ddd6; --floor:#f3f4f1; --wall:#fdfdfb; --step:#c9cfc8;
+  --ui:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#171b1b; --panel:#212726; --fg:#e8ecea; --muted:#9aa4a1; --line:#34403d; --accent:#7cc2b2;
+  --scene:#1a1f1f; --ground:#232a29; --floor:#4a5452; --wall:#e9ece8; --step:#6d7876; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#171b1b; --panel:#212726; --fg:#e8ecea; --muted:#9aa4a1; --line:#34403d; --accent:#7cc2b2;
+  --scene:#1a1f1f; --ground:#232a29; --floor:#4a5452; --wall:#e9ece8; --step:#6d7876; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--ui);overflow:hidden}
+#stage{position:fixed;inset:0}
+#stage canvas{display:block;touch-action:none}
+.card{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));
+  width:min(280px,calc(100vw - 32px));background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:14px 16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 6px 20px rgb(0 0 0/.08)}
+h1{margin:0;font-size:16px;font-weight:600;text-wrap:balance}
+.head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.head .ttlwrap{display:flex;gap:8px;align-items:flex-start;min-width:0}
+.grip{flex:none;color:var(--muted);margin-top:3px;opacity:.75}
+.card.dragging{box-shadow:0 14px 34px rgb(0 0 0/.18);opacity:.97}
+.card.dragging .head{cursor:grabbing}
+#fold{flex:none;width:30px;height:30px;border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--fg);cursor:pointer;display:grid;place-items:center;padding:0}
+#fold svg{transition:transform .2s}
+.card.min #fold svg{transform:rotate(180deg)}
+.card.min{width:auto;max-width:calc(100vw - 32px)}
+.card.min .sub{display:none}
+#panel{display:flex;flex-direction:column;gap:12px}
+@media (prefers-reduced-motion:reduce){#fold svg{transition:none}}
+.sub{margin:2px 0 0;font-size:12px;color:var(--muted)}
+.seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{flex:1;border:0;background:transparent;color:var(--fg);font:inherit;font-size:13px;padding:7px 4px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--panel);font-weight:600}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:flex;justify-content:space-between;align-items:center;font-size:13px;gap:8px}
+.row output{font-variant-numeric:tabular-nums;color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+label.chk{display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer}
+.hint{font-size:11.5px;color:var(--muted);line-height:1.5;margin:0}
+.card:not(.min){padding-bottom:0}
+#panel{padding-bottom:16px}
+@media (max-width:480px){.hint{display:none}}
+.save{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+#dl{border:0;border-radius:7px;background:var(--accent);color:var(--panel);font:inherit;font-size:13px;font-weight:600;padding:9px;cursor:pointer}
+#dl:disabled{opacity:.6;cursor:default}
+#msg{font-size:12px;color:var(--muted);min-height:1em;margin:0}
+.card{max-height:calc(100% - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow-y:auto}
+.sec{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.sec h2{margin:0;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.04em}
+.sw{display:flex;flex-wrap:wrap;gap:7px}
+.sw button{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);cursor:pointer;padding:0;background:var(--c)}
+.sw button[aria-pressed="true"]{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent)}
+.sw button.def{background:linear-gradient(135deg,#e4e8e3 50%,#1a1f1f 50%)}
+.btns{display:flex;gap:6px}
+.btns button{flex:1;border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--fg);font:inherit;font-size:12.5px;padding:6px 4px;cursor:pointer}
+.btns button:disabled{opacity:.45;cursor:default}
+.count{font-size:12px;color:var(--muted);margin:0;font-variant-numeric:tabular-nums}
+body.erasing #stage canvas{cursor:crosshair}
+[hidden]{display:none!important}
+#tool{display:grid;grid-template-columns:repeat(4,1fr)}
+#tool button{font-size:12px;padding:7px 0;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+#tool button:nth-child(4n),#tool button:last-child{border-right:0}
+#tool button:last-child{grid-column:span 2}
+.sw button.erase{background:var(--panel);color:var(--muted);font-size:13px}
+#pSlab[aria-pressed="true"]{background:var(--accent);color:var(--panel);border-color:var(--accent)}
+#tool button:nth-child(n+5){border-bottom:0}
+.sharebox{display:flex;flex-direction:column;gap:8px}
+#share[data-kind="ok"] #shareMsg{color:var(--accent)}
+#share[data-kind="err"] #shareMsg{color:#b4492f}
+#upload{border:0;border-radius:7px;background:var(--accent);color:var(--panel);font:inherit;font-size:12.5px;font-weight:600;padding:8px;cursor:pointer;text-align:left}
+#upload:disabled{opacity:.6}
+.ghostbtn{border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--fg);font:inherit;font-size:12.5px;padding:7px;cursor:pointer}
+#labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+.chip{position:absolute;left:0;top:0;white-space:nowrap;pointer-events:auto;cursor:pointer;font:600 12px/1 var(--ui);color:var(--fg);
+  background:var(--panel);border:1px solid var(--line);padding:5px 9px;border-radius:999px;box-shadow:0 2px 6px rgb(0 0 0/.08);touch-action:none}
+.chip.has{border-color:var(--accent)}
+.chip.has::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:5px;vertical-align:1px}
+.chip:hover{border-color:var(--accent)}
+.chip.sel{background:var(--accent);color:var(--panel);border-color:var(--accent)}
+.chip.sel::before{background:var(--panel)}
+#labels.inert .chip{pointer-events:none;opacity:.5}
+body.labeling .chip.dup{border-color:#d4483b;color:#b3362b;background:#fdecea}
+body.labeling .chip.dup::after{content:" 중복";font-size:10px;font-weight:700}
+body.labeling .chip.sel.dup{background:#c9473a;color:#fff;border-color:#c9473a}
+.chip.off{opacity:.45;border-style:dashed;text-decoration:line-through}
+.warnmsg{color:#b4492f!important;font-weight:600}
+body.labeling #labels .chip{cursor:grab}
+.fld{display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+.fld input{font:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+.mbg{position:fixed;inset:0;background:rgb(10 20 20/.42);display:grid;place-items:center;padding:16px;z-index:30}
+.modal{background:var(--panel);color:var(--fg);border-radius:16px;width:min(480px,100%);padding:24px 26px;display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 60px rgb(0 0 0/.25)}
+.mhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.mtag{background:var(--bg);color:var(--accent);font-weight:600;font-size:12px;padding:4px 9px;border-radius:6px}
+.mclose{border:1px solid var(--line);background:transparent;color:var(--fg);width:32px;height:32px;border-radius:50%;cursor:pointer;flex:none}
+.modal h2{margin:0;font-size:21px}
+.modal p{margin:0;line-height:1.6;color:var(--muted);font-size:13.5px}
+.mfoot button{width:100%;border:0;border-radius:9px;background:var(--accent);color:var(--panel);font:inherit;font-weight:600;padding:11px;cursor:pointer}
+#web{border:1px solid var(--accent);border-radius:7px;background:transparent;color:var(--accent);font:inherit;font-size:13px;font-weight:600;padding:9px;cursor:pointer}
+.stairbox{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid var(--line);border-radius:8px}
+.stairbox .row{font-size:12.5px}
+.btns button.warn{color:#b4492f}
+#floorSel button{font-size:12.5px;padding:7px 2px}
+.seg button:disabled{opacity:.4;cursor:default}
+</style>
+
+<div id="stage"></div>
+<div id="labels" aria-label="실 이름"></div>
+<div class="mbg" id="roomModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <div class="mhead"><span class="mtag" id="mTag"></span><button class="mclose" id="mClose" aria-label="닫기">✕</button></div>
+    <h2 id="mTitle"></h2>
+    <p id="mBody"></p>
+    <div class="mfoot"><button id="mOk">닫기</button></div>
+  </div>
+</div>
+<div class="card">
+  <div class="head">
+    <div class="ttlwrap" title="끌어서 메뉴 옮기기 · 두 번 클릭하면 제자리로">
+      <svg class="grip" width="10" height="16" viewBox="0 0 10 16" aria-hidden="true" fill="currentColor"><circle cx="2.5" cy="3" r="1.4"/><circle cx="7.5" cy="3" r="1.4"/><circle cx="2.5" cy="8" r="1.4"/><circle cx="7.5" cy="8" r="1.4"/><circle cx="2.5" cy="13" r="1.4"/><circle cx="7.5" cy="13" r="1.4"/></svg>
+      <div><h1 id="ttl">매안초 1층 3D 모형</h1><p class="sub">대피 안내도의 벽선만 따서 세운 모형</p></div>
+    </div>
+    <button id="fold" aria-expanded="true" aria-controls="panel" title="메뉴 접기" aria-label="메뉴 접기"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l4-4 4 4"/></svg></button>
+  </div>
+  <div id="panel">
+  <div class="seg" id="floorSel" role="group" aria-label="층 선택">
+    <button data-f="0" aria-pressed="true">1층</button>
+    <button data-f="1" aria-pressed="false">2층</button>
+    <button data-f="2" aria-pressed="false">3층</button>
+    <button data-f="3" aria-pressed="false">4층</button>
+    <button data-f="4" aria-pressed="false">5층</button>
+    <button data-f="all" aria-pressed="false">전체</button>
+  </div>
+  <div class="seg" role="group" aria-label="시점">
+    <button id="v3d" aria-pressed="true">입체</button>
+    <button id="vtop" aria-pressed="false">평면</button>
+    <button id="vlow" aria-pressed="false">낮은 시점</button>
+  </div>
+  <div class="row" style="gap:10px"><span>드래그하면</span>
+    <div class="seg" id="dragMode" role="group" aria-label="드래그 동작" style="flex:1">
+      <button data-m="rotate" aria-pressed="true">돌리기</button>
+      <button data-m="pan" aria-pressed="false">옮기기</button>
+    </div>
+  </div>
+  <div>
+    <div class="row"><label for="h">벽 높이</label><output id="hv">3.0 m</output></div>
+    <input id="h" type="range" min="0.5" max="4" step="0.1" value="3">
+  </div>
+  <div id="spaceRow" hidden>
+    <div class="row"><label for="gap">층 사이 띄우기</label><output id="gv">0 m</output></div>
+    <input id="gap" type="range" min="0" max="12" step="1" value="0">
+  </div>
+  <label class="chk"><input id="lb" type="checkbox" checked> 실 이름 표시</label>
+  <label class="chk"><input id="st" type="checkbox" checked> 계단 표시</label>
+  <label class="chk"><input id="sh" type="checkbox" checked> 벽 그림자</label>
+  <div class="sec">
+    <h2>편집</h2>
+    <div class="seg" id="tool" role="group" aria-label="편집 도구">
+      <button data-t="view" aria-pressed="true">보기</button>
+      <button data-t="wedit" aria-pressed="false">벽 조절</button>
+      <button data-t="add" aria-pressed="false">벽 추가</button>
+      <button data-t="erase" aria-pressed="false">벽 삭제</button>
+      <button data-t="stair" aria-pressed="false">계단</button>
+      <button data-t="label" aria-pressed="false">이름</button>
+      <button data-t="paint" aria-pressed="false">실 바닥 색</button>
+    </div>
+    <p class="count" id="tip">모형을 돌려 보는 기본 상태입니다.</p>
+    <label class="chk" id="orthoRow" hidden><input id="ortho" type="checkbox" checked> 가로·세로로만 그리기</label>
+    <label class="chk" id="snapRow" hidden><input id="snap" type="checkbox" checked> 기존 벽에 자석처럼 붙이기</label>
+    <div class="stairbox" id="paintBox" hidden>
+      <div class="sw" id="psw" role="group" aria-label="칠할 색"></div>
+      <div class="btns"><button id="pSlab" aria-pressed="false">바닥판 지우기</button><button id="pRestore">지운 바닥판 되살리기</button></div>
+    </div>
+    <div class="stairbox" id="wallBox" hidden>
+      <label class="chk"><input id="wKeep" type="checkbox" checked> 끝점은 벽 방향으로만 움직이기</label>
+      <div id="wEdit" class="stairbox" style="padding:0;border:0" hidden>
+        <div class="fld"><label for="wLen">길이 (m)</label><input id="wLen" type="number" min="0.2" max="80" step="0.1"></div>
+        <div class="btns"><button id="wRot">90° 돌리기</button><button id="wDel" class="warn">이 벽 지우기</button></div>
+      </div>
+    </div>
+    <div class="stairbox" id="labelBox" hidden>
+      <p class="count warnmsg" id="lDupSum" hidden></p>
+      <div id="lEdit" class="stairbox" style="padding:0;border:0" hidden>
+        <div class="fld"><label for="lName">이름</label><input id="lName" type="text" maxlength="30" autocomplete="off"></div>
+        <div class="fld"><label for="lCode">연결 코드</label><input id="lCode" type="text" maxlength="20" placeholder="예: 1-1" autocomplete="off"></div>
+        <p class="count">비워 두면 실 이름이 그대로 연결 코드가 됩니다. 이름과 다른 코드를 쓰려면 입력하세요. 한글도 됩니다.</p>
+        <p class="count warnmsg" id="lDup" hidden></p>
+        <label class="chk"><input id="lHide" type="checkbox"> 감추기 (웹 앱과 보기 화면에 안 나옴)</label>
+        <div class="btns"><button id="lDel" class="warn">이 이름표 지우기</button></div>
+      </div>
+    </div>
+    <div class="stairbox" id="stairBox" hidden>
+      <div class="btns"><button id="sAdd">새 계단 놓기</button><button id="sCopy">1층 계단 복사</button></div>
+      <div id="sEdit" class="stairbox" style="padding:0;border:0" hidden>
+        <div class="btns"><button id="sRot">90° 돌리기</button><button id="sFlip">오르는 방향 반대로</button></div>
+        <div><div class="row"><label for="sW">폭</label><output id="sWv"></output></div><input id="sW" type="range" min="0.6" max="8" step="0.1"></div>
+        <div><div class="row"><label for="sL">길이</label><output id="sLv"></output></div><input id="sL" type="range" min="1" max="20" step="0.1"></div>
+        <div><div class="row"><label for="sH">높이</label><output id="sHv"></output></div><input id="sH" type="range" min="0.3" max="5" step="0.1"></div>
+        <div><div class="row"><label for="sN">단 수</label><output id="sNv"></output></div><input id="sN" type="range" min="2" max="40" step="1"></div>
+        <div class="btns"><button id="sDel" class="warn">이 계단 지우기</button></div>
+      </div>
+    </div>
+    <div class="btns"><button id="undo" disabled>되돌리기</button><button id="reset" disabled>처음 상태로</button></div>
+    <p class="count" id="cnt">원래 배치도 그대로</p>
+    <div class="sharebox" id="share"><p class="count" id="shareMsg">저장 위치를 확인하는 중…</p><button id="upload" hidden></button>
+      <button id="impBtn" class="ghostbtn">파일에서 불러오기</button>
+      <input id="impFile" type="file" accept=".html,.htm,.json,text/html,application/json" hidden>
+      <div id="impAsk" class="stairbox" hidden><p class="count" id="impMsg"></p>
+        <div class="btns"><button id="impGo" class="warn">이 파일로 바꾸기</button><button id="impNo">취소</button></div></div>
+    </div>
+  </div>
+  <div class="sec">
+    <h2>배경 색</h2>
+    <div class="sw" id="sw" role="group" aria-label="배경 색"></div>
+  </div>
+  <div class="sec">
+    <h2>바닥 색</h2>
+    <div class="sw" id="fsw" role="group" aria-label="바닥 색"></div>
+  </div>
+  <div class="save" id="saveBox" hidden>
+    <label class="chk"><input id="tp" type="checkbox"> 배경 투명하게</label>
+    <button id="dl">지금 보이는 모습 PNG로 저장</button>
+    <button id="web">웹 앱용 파일 받기 (보기 전용)</button>
+    <p id="msg" aria-live="polite"></p>
+  </div>
+  <p class="hint">휠·핀치로 확대, 우클릭(두 손가락) 드래그로 이동, 바닥을 두 번 누르면 그곳이 화면 가운데로 옵니다. 축척은 안내도 사진 기준 대략값이고, 층마다 사진 각도가 달라 위아래가 조금 어긋날 수 있습니다.</p>
+  </div>
+</div>
+<script>
+(function(){
+  const card=document.querySelector('.card'), panel=document.getElementById('panel'), btn=document.getElementById('fold');
+  function set(min){
+    card.classList.toggle('min',min); panel.hidden=min;
+    btn.setAttribute('aria-expanded',String(!min));
+    const t=min?'메뉴 펼치기':'메뉴 접기'; btn.title=t; btn.setAttribute('aria-label',t);
+    try{localStorage.setItem('maean-menu',min?'min':'open')}catch(e){}
+  }
+  let start=false; try{start=localStorage.getItem('maean-menu')==='min'}catch(e){}
+  set(start);
+  btn.addEventListener('click',()=>{set(!card.classList.contains('min')); place();});
+
+  // floating: drag the header to move the menu anywhere
+  const head=card.querySelector('.head'), KEY='maean-menu-pos';
+  let pos=null; try{pos=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}
+  function place(){
+    if(!pos){ card.style.left=card.style.top=card.style.maxHeight=''; return; }
+    const W=innerWidth,H=innerHeight, w=card.offsetWidth, h=Math.min(card.scrollHeight,H-16);
+    const x=Math.max(8,Math.min(pos.x,W-w-8)), y=Math.max(8,Math.min(pos.y,H-h-8));
+    card.style.left=x+'px'; card.style.top=y+'px'; card.style.maxHeight=(H-y-8)+'px';
+  }
+  let drag=null;
+  head.addEventListener('pointerdown',e=>{
+    if(e.target.closest('#fold')||e.button>0) return;
+    const r=card.getBoundingClientRect();
+    drag={dx:e.clientX-r.left,dy:e.clientY-r.top,id:e.pointerId};
+    head.setPointerCapture(e.pointerId); card.classList.add('dragging'); e.preventDefault();
+  });
+  head.addEventListener('pointermove',e=>{
+    if(!drag||e.pointerId!==drag.id) return;
+    pos={x:e.clientX-drag.dx,y:e.clientY-drag.dy}; place();
+  });
+  function end(e){
+    if(!drag) return; drag=null; card.classList.remove('dragging');
+    try{localStorage.setItem(KEY,JSON.stringify(pos))}catch(err){}
+  }
+  head.addEventListener('pointerup',end); head.addEventListener('pointercancel',end);
+  head.addEventListener('dblclick',e=>{ if(e.target.closest('#fold')) return; pos=null; place(); try{localStorage.removeItem(KEY)}catch(err){} });
+  addEventListener('resize',place);
+  place();
+})();
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const LABELS0=[[{"id":"1f0","name":"화장실","x":-43.15,"z":-21.0,"code":""},{"id":"1f1","name":"유교사실","x":-41.25,"z":-10.75,"code":""},{"id":"1f2","name":"해님반","x":-35.2,"z":-10.75,"code":""},{"id":"1f3","name":"달님반","x":-24.1,"z":-10.75,"code":""},{"id":"1f4","name":"별님반","x":-11.6,"z":-10.75,"code":""},{"id":"1f5","name":"시청각실","x":1.0,"z":-10.75,"code":""},{"id":"1f6","name":"급식실","x":29.0,"z":-13.25,"code":""},{"id":"1f7","name":"교직원","x":15.6,"z":-0.15,"code":""},{"id":"1f8","name":"화장실","x":22.35,"z":-0.15,"code":""},{"id":"1f9","name":"문서고","x":28.9,"z":-0.15,"code":""},{"id":"1f10","name":"화장실","x":-43.15,"z":8.5,"code":""},{"id":"1f11","name":"교실","x":-39.65,"z":18.25,"code":""},{"id":"1f12","name":"교실","x":-32.6,"z":18.35,"code":""},{"id":"1f13","name":"교실","x":-24.2,"z":18.15,"code":""},{"id":"1f14","name":"방송실","x":-17.75,"z":17.15,"code":""},{"id":"1f15","name":"협의실","x":-13.5,"z":16.75,"code":""},{"id":"1f16","name":"교무실","x":-8.1,"z":15.5,"code":""},{"id":"1f17","name":"중앙현관","x":-0.0,"z":14.5,"code":""},{"id":"1f18","name":"행정실","x":7.75,"z":13.65,"code":""},{"id":"1f19","name":"교장실","x":15.35,"z":12.5,"code":""},{"id":"1f20","name":"회의실","x":21.75,"z":11.75,"code":""},{"id":"1f21","name":"보건실","x":29.15,"z":11.9,"code":""},{"id":"1f22","name":"관리실","x":36.35,"z":12.1,"code":""}],[{"id":"2f0","name":"화장실","x":-43.44,"z":-21.23,"code":""},{"id":"2f1","name":"교실","x":-37.11,"z":-10.71,"code":""},{"id":"2f2","name":"돌봄3","x":-27.23,"z":-10.62,"code":""},{"id":"2f3","name":"돌봄2","x":-21.39,"z":-10.56,"code":""},{"id":"2f4","name":"돌봄1","x":-15.55,"z":-10.51,"code":""},{"id":"2f5","name":"돌봄 준비실","x":-9.49,"z":-10.01,"code":""},{"id":"2f6","name":"도서관","x":1.75,"z":-9.24,"code":""},{"id":"2f7","name":"체육관","x":29.13,"z":-12.78,"code":""},{"id":"2f8","name":"화장실","x":9.78,"z":0.18,"code":""},{"id":"2f9","name":"화장실","x":-43.09,"z":8.62,"code":""},{"id":"2f10","name":"교실","x":-38.55,"z":18.46,"code":""},{"id":"2f11","name":"교실","x":-31.14,"z":18.75,"code":""},{"id":"2f12","name":"교실","x":-23.74,"z":18.15,"code":""},{"id":"2f13","name":"교실","x":-15.66,"z":17.11,"code":""},{"id":"2f14","name":"교실","x":-7.13,"z":15.85,"code":""},{"id":"2f15","name":"교실","x":0.73,"z":14.59,"code":""},{"id":"2f16","name":"교실","x":7.91,"z":13.98,"code":""},{"id":"2f17","name":"1학년 교사실","x":15.77,"z":13.16,"code":""},{"id":"2f18","name":"교담A 교사실","x":21.37,"z":11.88,"code":""},{"id":"2f19","name":"교실","x":27.66,"z":12.38,"code":""},{"id":"2f20","name":"교실","x":35.07,"z":12.45,"code":""}],[{"id":"3f0","name":"화장실","x":-44.0,"z":-21.46,"code":""},{"id":"3f1","name":"교실","x":-38.48,"z":-10.75,"code":""},{"id":"3f2","name":"교실","x":-28.94,"z":-10.59,"code":""},{"id":"3f3","name":"교실","x":-19.69,"z":-10.43,"code":""},{"id":"3f4","name":"교실","x":-10.63,"z":-10.28,"code":""},{"id":"3f5","name":"컴퓨터실","x":2.01,"z":-10.02,"code":""},{"id":"3f6","name":"교실","x":2.22,"z":-2.58,"code":""},{"id":"3f7","name":"화장실","x":9.91,"z":-0.05,"code":""},{"id":"3f8","name":"화장실","x":-42.94,"z":8.49,"code":""},{"id":"3f9","name":"교실","x":-38.55,"z":19.04,"code":""},{"id":"3f10","name":"교실","x":-31.14,"z":19.07,"code":""},{"id":"3f11","name":"교실","x":-23.01,"z":18.24,"code":""},{"id":"3f12","name":"교실","x":-14.78,"z":17.02,"code":""},{"id":"3f13","name":"교실","x":-6.45,"z":15.71,"code":""},{"id":"3f14","name":"교실","x":1.39,"z":14.54,"code":""},{"id":"3f15","name":"교실","x":8.46,"z":13.45,"code":""},{"id":"3f16","name":"3학년 교사실","x":16.3,"z":12.52,"code":""},{"id":"3f17","name":"2학년 교사실","x":21.53,"z":11.88,"code":""},{"id":"3f18","name":"교실","x":27.68,"z":12.33,"code":""},{"id":"3f19","name":"교실","x":35.19,"z":12.45,"code":""}],[{"id":"4f0","name":"화장실","x":-43.75,"z":-21.5,"code":""},{"id":"4f1","name":"과학실1","x":-37.07,"z":-10.97,"code":""},{"id":"4f2","name":"자료실","x":-24.55,"z":-10.74,"code":""},{"id":"4f3","name":"과학실2","x":-12.71,"z":-10.52,"code":""},{"id":"4f4","name":"교실","x":2.32,"z":-14.53,"code":""},{"id":"4f5","name":"인쇄실","x":-0.18,"z":-8.57,"code":""},{"id":"4f6","name":"교실","x":2.33,"z":-2.78,"code":""},{"id":"4f7","name":"화장실","x":10.14,"z":0.08,"code":""},{"id":"4f8","name":"화장실","x":-42.89,"z":8.5,"code":""},{"id":"4f9","name":"교실","x":-38.18,"z":18.98,"code":""},{"id":"4f10","name":"교실","x":-30.76,"z":18.98,"code":""},{"id":"4f11","name":"교실","x":-22.56,"z":18.46,"code":""},{"id":"4f12","name":"교실","x":-14.82,"z":17.34,"code":""},{"id":"4f13","name":"교실","x":-6.63,"z":15.82,"code":""},{"id":"4f14","name":"교실","x":1.21,"z":14.61,"code":""},{"id":"4f15","name":"5학년 교사실","x":7.35,"z":13.59,"code":""},{"id":"4f16","name":"4학년 교사실","x":11.91,"z":12.77,"code":""},{"id":"4f17","name":"교실","x":19.19,"z":12.23,"code":""},{"id":"4f18","name":"교실","x":26.93,"z":12.15,"code":""},{"id":"4f19","name":"여교사 휴게실","x":32.76,"z":12.03,"code":""}],[{"id":"5f0","name":"화장실","x":-43.79,"z":-21.54,"code":""},{"id":"5f1","name":"음악실","x":-37.57,"z":-10.8,"code":""},{"id":"5f2","name":"음악 준비실","x":-27.79,"z":-10.35,"code":""},{"id":"5f3","name":"교실","x":-13.28,"z":-10.41,"code":""},{"id":"5f4","name":"옥상텃밭","x":1.97,"z":-8.32,"code":""},{"id":"5f5","name":"화장실","x":10.07,"z":0.15,"code":""},{"id":"5f6","name":"화장실","x":-42.98,"z":8.59,"code":""},{"id":"5f7","name":"교실","x":-39.18,"z":19.15,"code":""},{"id":"5f8","name":"교실","x":-31.73,"z":19.09,"code":""},{"id":"5f9","name":"교실","x":-23.61,"z":18.28,"code":""},{"id":"5f10","name":"교실","x":-15.38,"z":17.14,"code":""},{"id":"5f11","name":"교실","x":-7.06,"z":15.85,"code":""},{"id":"5f12","name":"교실","x":0.82,"z":14.71,"code":""},{"id":"5f13","name":"6학년 교사실","x":7.35,"z":13.73,"code":""},{"id":"5f14","name":"교담(B) 영어·음악실","x":11.85,"z":13.31,"code":""},{"id":"5f15","name":"교실","x":19.44,"z":11.87,"code":""},{"id":"5f16","name":"교실","x":28.88,"z":11.99,"code":""},{"id":"5f17","name":"종이접기실","x":35.8,"z":12.64,"code":""}]];
+const FLOORDATA=[{"w":[[378.0,185.0,593.0,185.0],[593.0,185.0,593.0,278.0],[593.0,278.0,1440.0,280.0],[378.0,185.0,378.0,520.0],[378.0,520.0,395.0,520.0],[440.0,520.0,1175.0,520.0],[445.0,185.0,445.0,278.0],[518.0,190.0,518.0,278.0],[378.0,280.0,398.0,280.0],[432.0,280.0,458.0,280.0],[500.0,280.0,540.0,280.0],[378.0,475.0,400.0,475.0],[425.0,475.0,453.0,475.0],[450.0,358.0,570.0,358.0],[640.0,358.0,800.0,358.0],[880.0,358.0,1050.0,358.0],[1115.0,358.0,1175.0,358.0],[453.0,358.0,453.0,520.0],[518.0,358.0,518.0,520.0],[700.0,358.0,700.0,520.0],[978.0,358.0,978.0,520.0],[1175.0,358.0,1175.0,652.0],[1240.0,280.0,1240.0,590.0],[1440.0,280.0,1440.0,590.0],[1240.0,590.0,1270.0,590.0],[1295.0,590.0,1375.0,590.0],[1420.0,590.0,1470.0,590.0],[1470.0,590.0,1470.0,628.0],[1435.0,665.0,1435.0,712.0],[1470.0,670.0,1470.0,712.0],[1435.0,712.0,1555.0,712.0],[1555.0,590.0,1955.0,590.0],[1555.0,590.0,1555.0,712.0],[1690.0,590.0,1690.0,715.0],[1825.0,590.0,1825.0,715.0],[1955.0,570.0,1955.0,715.0],[1555.0,715.0,1590.0,715.0],[1630.0,715.0,1745.0,715.0],[1795.0,715.0,1820.0,715.0],[1868.0,715.0,2175.0,715.0],[1560.0,200.0,2245.0,200.0],[1560.0,200.0,1560.0,398.0],[1560.0,432.0,1560.0,522.0],[1560.0,558.0,1560.0,590.0],[2245.0,200.0,2245.0,440.0],[2245.0,490.0,2245.0,570.0],[1955.0,568.0,2245.0,568.0],[1090.0,652.0,1175.0,652.0],[1090.0,652.0,1090.0,720.0],[1005.0,720.0,1170.0,720.0],[1005.0,720.0,1005.0,838.0],[1170.0,720.0,1170.0,838.0],[1005.0,785.0,1170.0,785.0],[1055.0,785.0,1055.0,838.0],[1100.0,785.0,1100.0,838.0],[378.0,778.0,593.0,778.0],[593.0,778.0,593.0,835.0],[593.0,835.0,1005.0,835.0],[445.0,778.0,445.0,865.0],[518.0,782.0,518.0,865.0],[378.0,870.0,400.0,870.0],[435.0,870.0,458.0,870.0],[500.0,870.0,540.0,870.0],[378.0,778.0,378.0,1120.0],[378.0,1120.0,395.0,1120.0],[440.0,1120.0,750.0,1125.0],[750.0,1125.0,1285.0,1048.0],[1350.0,1040.0,1700.0,992.0],[1700.0,992.0,2085.0,997.0],[2150.0,997.0,2175.0,997.0],[2175.0,715.0,2175.0,1005.0],[445.0,935.0,485.0,935.0],[550.0,935.0,640.0,935.0],[700.0,935.0,780.0,930.0],[868.0,915.0,985.0,898.0],[1040.0,890.0,1075.0,885.0],[1130.0,878.0,1165.0,873.0],[1415.0,832.0,1645.0,800.0],[1700.0,797.0,1770.0,797.0],[1825.0,797.0,2050.0,797.0],[445.0,935.0,445.0,1120.0],[588.0,935.0,588.0,1120.0],[740.0,935.0,750.0,1125.0],[900.0,912.0,925.0,1095.0],[988.0,898.0,1008.0,1085.0],[1075.0,885.0,1095.0,1075.0],[1218.0,862.0,1243.0,1052.0],[1370.0,840.0,1395.0,1032.0],[1525.0,815.0,1555.0,1005.0],[1700.0,797.0,1700.0,992.0],[1795.0,797.0,1795.0,992.0],[1985.0,800.0,1985.0,997.0],[2085.0,800.0,2085.0,1000.0]],"s":[[380.0,360.0,415.0,476.0,"y",10],[380.0,938.0,413.0,1035.0,"y",9],[1035.0,724.0,1135.0,784.0,"x",10],[2128.0,805.0,2167.0,910.0,"y",9]],"o":[[[378.0,185.0],[593.0,185.0],[593.0,278.0],[1440.0,280.0],[1440.0,590.0],[1470.0,590.0],[1470.0,712.0],[1555.0,712.0],[1555.0,590.0],[1560.0,200.0],[2245.0,200.0],[2245.0,568.0],[1955.0,568.0],[1955.0,715.0],[2175.0,715.0],[2175.0,997.0],[1700.0,992.0],[1350.0,1040.0],[1285.0,1048.0],[750.0,1125.0],[378.0,1120.0],[378.0,778.0],[593.0,778.0],[593.0,835.0],[1005.0,835.0],[1005.0,720.0],[1090.0,720.0],[1090.0,652.0],[1175.0,652.0],[1175.0,520.0],[378.0,520.0]]]},{"w":[[370.9,180.7,584.7,182.6],[370.9,180.7,372.4,519.3],[584.7,182.6,585.1,276.2],[585.1,276.2,1444.7,283.9],[441.0,181.3,441.4,277.6],[511.0,181.9,511.4,278.2],[371.3,276.9,400.9,277.2],[427.9,277.4,465.6,277.8],[495.3,278.0,533.0,278.4],[371.6,356.2,392.3,356.4],[446.2,356.9,567.5,358.0],[634.8,358.6,742.6,359.6],[792.0,360.0,859.4,360.6],[902.5,361.0,976.2,361.7],[1022.9,362.1,1181.0,363.5],[446.2,356.9,446.9,520.0],[702.2,359.2,702.9,522.3],[821.7,360.3,822.4,523.4],[940.2,361.4,940.9,524.4],[1061.7,398.1,1062.2,525.5],[372.4,519.3,1181.7,526.6],[1181.0,363.5,1182.5,724.5],[1013.7,722.9,1182.5,724.5],[1013.7,722.9,1014.2,841.5],[1013.9,788.0,1182.8,789.5],[1066.0,788.5,1066.3,841.9],[1111.0,788.9,1111.2,842.3],[1180.9,762.8,1181.3,843.0],[376.2,777.8,596.2,779.8],[376.2,777.8,377.6,1120.9],[596.2,779.8,596.5,837.7],[596.5,837.7,1183.1,843.0],[448.0,778.4,448.4,872.0],[519.9,783.5,520.3,872.6],[376.6,871.3,403.5,871.6],[430.5,871.8,470.9,872.2],[502.3,872.5,538.3,872.8],[376.8,935.5,412.8,935.8],[448.7,936.1,489.1,936.5],[556.5,937.1,637.3,937.8],[709.2,938.5,785.6,939.2],[754.1,935.3,812.5,928.7],[848.4,924.6,956.1,907.8],[1014.4,899.4,1122.1,882.5],[1174.2,874.1,1283.7,857.3],[1330.4,853.2,1440.8,836.4],[1485.7,827.9,1548.5,822.2],[1571.0,815.3,1683.2,800.3],[377.6,1120.9,763.9,1124.3],[763.9,1124.3,1702.0,990.2],[1702.0,990.2,2166.4,1001.6],[453.2,936.2,454.0,1121.5],[610.4,937.6,611.2,1123.0],[751.4,941.6,763.9,1124.3],[906.7,916.2,934.5,1099.2],[1068.3,895.4,1096.0,1073.9],[1231.7,865.7,1259.4,1053.1],[1389.7,847.5,1417.4,1027.8],[1545.8,821.3,1576.3,1006.9],[1685.0,800.3,1702.0,990.2],[1245.3,282.1,1245.4,295.5],[1245.6,347.2,1246.8,631.5],[1246.8,631.5,1262.1,631.6],[1300.7,632.0,1446.2,633.3],[1444.7,283.9,1446.6,716.1],[1446.1,597.6,1568.2,598.7],[1504.5,598.2,1505.0,716.7],[1566.6,215.5,1568.7,717.3],[1446.6,716.1,1458.3,716.3],[1480.7,716.5,1512.2,716.7],[1543.6,717.0,1568.7,717.3],[1566.6,213.8,2246.6,219.9],[2246.6,219.9,2248.2,598.6],[1568.2,596.9,1606.0,597.3],[1653.6,597.7,1956.3,600.5],[1779.3,598.9,1779.4,609.6],[1956.2,575.5,2243.6,578.1],[1956.3,613.8,2239.3,616.4],[1956.2,575.5,1956.8,720.8],[1568.5,663.8,1590.1,664.0],[1631.4,664.4,1653.8,664.6],[1696.1,664.9,1776.9,665.7],[1776.9,665.7,1777.1,719.1],[1777.1,719.1,1956.8,720.8],[1956.8,720.8,2167.9,722.7],[2167.9,722.7,2169.1,1001.6],[1687.7,800.3,1759.5,801.0],[1828.7,801.6,2051.5,803.6],[2125.1,804.3,2159.3,804.6],[1782.0,801.2,1782.8,991.0],[1932.0,802.5,1932.8,992.3],[2081.1,803.9,2081.9,996.3]],"s":[[372.6,358.9,446.8,493.2,"y",11],[376.9,938.2,451.2,1090.3,"y",12],[1042.4,728.5,1135.2,786.4,"x",10],[2083.1,846.7,2166.2,945.4,"y",9],[1960.7,578.2,2234.8,614.6,"x",30]],"o":[[[370.9,180.7],[584.7,182.6],[585.1,276.2],[1444.7,283.9],[1446.1,597.6],[1568.2,598.7],[1566.6,213.8],[2246.6,219.9],[2248.3,616.5],[1956.3,613.8],[1956.8,720.8],[2167.9,722.7],[2169.1,1001.6],[1702.0,990.2],[763.9,1124.3],[377.6,1120.9],[376.2,777.8],[596.2,779.8],[596.5,837.7],[1014.2,841.5],[1013.7,722.9],[1182.5,724.5],[1181.7,526.6],[372.4,519.3]]]},{"w":[[365.3,176.4,590.1,180.2],[365.3,176.4,366.2,516.3],[590.1,180.2,590.3,274.8],[590.3,274.8,1448.5,289.2],[418.6,177.3,418.9,276.8],[515.5,178.9,515.7,278.4],[365.6,274.9,385.0,275.2],[404.3,275.6,438.2,276.1],[491.5,277.0,535.1,277.8],[370.6,352.2,390.0,352.6],[448.1,353.5,515.9,354.7],[571.1,355.6,697.1,357.7],[755.2,358.7,881.1,360.8],[945.0,361.9,1071.0,364.0],[1129.1,364.9,1187.2,365.9],[448.1,353.5,448.5,517.7],[634.1,356.7,634.5,520.8],[819.1,359.7,819.5,523.9],[1005.1,362.9,1005.5,527.0],[1187.2,365.9,1188.1,726.1],[366.2,516.3,1187.6,530.1],[1020.5,723.3,1188.1,726.1],[1020.5,723.3,1020.8,839.1],[1020.7,786.0,1188.3,788.8],[1074.0,786.9,1074.1,840.0],[1117.6,787.7,1117.7,840.8],[1188.2,769.5,1188.4,841.9],[1251.9,285.9,1252.2,408.5],[1252.4,476.1,1252.6,561.1],[1252.8,630.6,1252.9,676.9],[1252.1,379.5,1412.0,382.2],[1353.6,287.6,1353.9,381.2],[1252.5,526.3,1449.1,529.6],[1252.9,676.9,1449.5,680.2],[1448.5,289.2,1449.6,716.0],[1449.3,595.3,1572.3,597.3],[1504.5,596.2,1504.8,712.1],[1572.3,597.3,1572.6,713.2],[1470.9,713.4,1517.4,714.2],[1543.6,714.6,1572.6,715.1],[1572.6,711.3,2163.5,721.1],[1566.5,218.7,2230.1,225.0],[2230.1,225.0,2226.1,579.3],[1567.4,573.1,2226.1,579.3],[1566.5,218.7,1567.4,573.1],[2163.5,721.1,2164.2,998.3],[1706.0,988.7,2164.2,996.3],[1785.7,714.8,1785.9,767.0],[1785.9,796.9,1786.4,990.0],[1689.1,797.2,1761.7,798.4],[1829.5,799.6,2050.4,803.3],[2125.0,804.5,2163.7,805.2],[1934.1,801.3,1934.6,992.5],[2081.4,803.8,2081.9,995.0],[1689.1,797.2,1706.0,987.7],[1553.5,817.2,1585.0,1003.1],[1577.7,814.7,1689.1,797.2],[1493.5,824.8,1548.7,819.0],[1337.6,849.3,1447.0,834.7],[1395.7,843.5,1423.3,1027.4],[376.5,775.3,599.3,779.0],[376.5,775.3,377.4,1122.9],[599.3,779.0,599.4,832.1],[599.4,832.1,1020.8,839.1],[452.1,776.5,452.3,873.1],[521.8,777.7,522.1,874.2],[376.8,871.8,391.3,872.1],[430.0,872.7,473.6,873.4],[502.7,873.9,544.3,874.6],[454.4,935.9,493.2,936.5],[559.0,937.6,641.4,939.0],[714.0,940.2,759.5,941.0],[759.5,939.0,814.7,930.3],[854.4,923.3,964.8,907.7],[1021.9,897.1,1132.3,882.5],[1180.7,872.7,1290.1,856.2],[377.4,1122.9,772.6,1129.5],[772.6,1129.5,1706.0,988.7],[454.4,935.9,454.9,1124.2],[614.2,938.5,614.7,1126.8],[756.6,940.9,770.7,1129.4],[912.5,917.5,942.0,1101.4],[1077.1,891.3,1108.6,1077.2],[1241.7,864.1,1271.3,1050.9]],"s":[[370.7,369.6,448.4,477.1,"y",11],[381.9,978.1,452.8,1085.5,"y",11],[2086.3,842.5,2159.2,945.1,"y",9],[1059.3,725.8,1156.3,783.5,"x",10]],"o":[[[365.3,176.4],[590.1,180.2],[590.3,274.8],[1448.5,289.2],[1449.3,595.3],[1572.3,597.3],[1572.6,711.3],[2163.5,721.1],[2164.2,998.3],[1706.0,988.7],[772.6,1129.5],[377.4,1122.9],[376.5,775.3],[599.3,779.0],[599.4,832.1],[1020.8,839.1],[1020.5,723.3],[1188.1,726.1],[1187.6,530.1],[366.2,516.3]],[[1566.5,218.7],[2230.1,225.0],[2226.1,579.3],[1567.4,573.1]]]},{"w":[[358.9,173.9,588.4,178.1],[358.9,173.9,359.2,517.5],[588.4,178.1,588.5,275.8],[588.5,275.8,1453.8,292.0],[436.3,175.3,436.4,276.6],[509.2,176.7,509.3,278.0],[360.8,274.3,386.3,274.7],[411.8,275.2,457.3,276.1],[491.0,276.7,532.0,277.5],[363.6,352.1,386.4,352.5],[445.6,353.6,568.5,355.9],[646.0,357.4,960.2,363.2],[1037.6,364.7,1189.7,367.5],[447.4,353.7,447.5,519.1],[709.7,358.6,709.8,524.0],[916.5,362.4,916.6,527.9],[1189.7,367.5,1190.0,727.4],[359.2,517.5,1189.9,533.0],[1251.6,290.0,1251.6,303.6],[1251.7,369.6,1251.7,461.8],[1251.8,502.5,1251.8,549.6],[1251.9,617.4,1251.9,677.1],[1251.7,437.4,1413.8,440.4],[1251.8,527.8,1413.9,530.9],[1356.5,439.4,1356.5,529.8],[1251.9,677.1,1454.1,680.8],[1453.8,292.0,1454.1,718.8],[1454.1,598.5,1575.2,600.8],[1511.4,599.6,1511.5,718.1],[1575.2,600.8,1575.3,716.6],[1470.5,717.3,1516.1,718.2],[1543.4,718.7,1575.3,719.3],[1575.3,714.8,2158.2,725.6],[1570.3,223.6,2233.4,227.0],[2233.4,227.0,2226.4,585.9],[1570.6,578.1,2226.4,585.9],[1570.3,223.6,1570.6,578.1],[2158.2,725.6,2158.4,996.0],[1712.1,985.9,2158.4,996.0],[1743.9,799.3,1798.5,800.3],[1859.5,801.5,1930.6,802.8],[1967.0,803.5,2039.9,804.8],[2117.3,806.3,2155.6,807.0],[1768.5,799.7,1768.6,988.7],[1928.8,802.7,1928.9,991.7],[2000.7,804.1,2000.9,993.1],[2074.5,805.5,2074.6,994.5],[1578.1,813.4,1607.4,1000.2],[1578.1,813.4,1686.5,798.2],[1487.0,832.5,1514.5,1013.8],[1440.6,836.1,1548.0,821.9],[1396.0,844.3,1423.4,1027.5],[1335.8,852.3,1396.0,844.3],[1261.2,858.1,1293.0,856.0],[1027.0,724.4,1190.0,727.4],[1027.0,724.4,1027.1,846.5],[1027.0,787.7,1190.1,790.7],[1077.1,788.6,1077.2,842.9],[1119.9,789.4,1120.0,843.7],[1190.0,763.6,1190.1,847.7],[377.6,775.6,603.5,779.8],[377.6,775.6,377.9,1123.7],[603.5,779.8,603.6,876.5],[603.5,837.7,1027.1,844.7],[603.6,876.5,760.2,882.2],[760.2,882.2,1027.1,855.5],[455.0,777.0,455.1,873.8],[523.3,778.3,523.4,875.0],[379.5,872.4,395.9,872.7],[436.9,873.4,468.8,874.0],[505.2,874.7,546.2,875.5],[457.9,935.3,496.1,936.0],[562.6,937.3,646.4,938.8],[716.6,940.1,760.3,941.0],[760.3,941.0,819.5,930.3],[858.6,924.7,967.9,908.7],[1024.4,896.2,1133.7,880.1],[1183.8,872.0,1293.0,856.0],[457.9,935.3,458.0,1125.2],[619.1,938.3,619.3,1128.2],[760.3,941.0,776.8,1122.1],[915.1,916.7,945.3,1096.3],[1079.0,892.7,1108.3,1074.1],[1241.1,864.0,1270.4,1050.0],[377.9,1123.7,776.8,1126.7],[776.8,1123.9,1712.1,985.9]],"s":[[372.7,382.1,445.7,482.9,"y",11],[386.9,974.7,458.0,1084.5,"y",11],[2076.3,843.5,2152.0,944.4,"y",9],[1060.7,729.6,1156.4,785.6,"x",10]],"o":[[[358.9,173.9],[588.4,178.1],[588.5,275.8],[1453.8,292.0],[1454.1,598.5],[1575.2,600.8],[1575.3,714.8],[2158.2,725.6],[2158.4,996.0],[1712.1,985.9],[776.8,1126.7],[377.9,1123.7],[377.6,775.6],[603.5,779.8],[603.5,837.7],[1027.1,844.7],[1027.0,724.4],[1190.0,727.4],[1189.9,533.0],[359.2,517.5]],[[1570.3,223.6],[2233.4,227.0],[2226.4,585.9],[1570.6,578.1]]]},{"w":[[364.4,175.6,582.2,178.3],[364.4,175.6,365.3,517.9],[582.2,178.3,582.4,276.7],[582.4,276.7,1450.5,289.1],[431.2,176.5,431.4,274.9],[506.7,177.4,506.9,275.8],[364.7,274.1,383.1,274.3],[415.0,274.7,458.5,275.2],[492.4,275.7,531.1,276.1],[366.8,354.4,383.3,354.6],[439.4,355.3,560.4,356.8],[642.6,357.8,957.1,361.6],[1034.5,362.5,1186.5,364.3],[441.3,355.3,441.8,518.8],[704.6,390.1,705.0,522.0],[809.1,359.8,809.5,523.2],[911.7,392.6,912.1,524.5],[1186.5,364.3,1187.4,727.6],[365.3,517.9,1186.9,527.8],[1250.1,289.6,1250.2,301.0],[1250.4,370.8,1250.9,581.1],[1251.1,648.1,1251.2,680.6],[1251.2,680.6,1451.5,683.0],[1450.5,289.1,1451.6,717.4],[1451.3,597.9,1572.2,599.3],[1511.3,598.6,1511.6,718.1],[1572.2,599.3,1572.5,718.8],[1470.9,717.6,1514.5,718.1],[1543.5,718.5,1572.5,718.8],[1572.5,718.8,2162.9,726.0],[1576.1,221.8,2243.8,227.0],[2243.8,227.0,2230.2,585.3],[1572.2,577.4,2230.2,585.3],[1576.1,221.8,1572.2,577.4],[2162.9,726.0,2163.6,997.5],[1708.7,988.2,2161.6,995.5],[1848.6,802.5,2048.9,804.9],[2129.2,805.9,2161.1,806.2],[2077.9,805.2,2078.4,994.5],[1787.6,801.7,1788.1,989.1],[1976.3,806.9,1976.8,993.3],[1592.2,814.7,1703.4,798.8],[1703.4,798.8,1735.3,799.2],[1592.2,814.7,1621.7,1000.5],[1485.7,829.7,1515.3,1014.5],[1451.9,835.9,1512.8,827.1],[1390.9,842.8,1421.4,1026.8],[1332.9,851.7,1390.9,842.8],[1019.0,725.6,1187.4,727.6],[1019.0,725.6,1019.4,855.6],[1019.2,788.7,1187.6,790.7],[1071.5,789.3,1071.6,840.9],[1116.0,789.8,1116.1,841.4],[1019.3,840.3,1185.8,842.3],[1185.6,763.9,1185.8,842.3],[377.6,778.1,595.3,780.7],[377.6,778.1,378.5,1122.2],[595.3,780.7,595.6,876.3],[595.6,876.3,767.8,878.4],[767.8,878.4,1019.4,855.6],[447.3,778.9,447.5,874.5],[520.8,779.8,521.1,875.4],[377.9,873.7,394.3,873.9],[429.1,874.3,467.9,874.7],[503.7,875.2,542.4,875.6],[450.6,936.7,489.3,937.1],[557.0,938.0,639.3,938.9],[711.9,939.8,755.4,940.3],[755.4,938.4,813.5,929.6],[852.2,922.4,963.4,909.4],[1019.5,900.5,1127.8,885.6],[1181.0,871.9,1290.3,857.9],[455.4,936.7,455.9,1123.2],[612.2,938.6,612.7,1125.0],[752.5,940.3,767.5,1124.0],[910.2,918.3,941.6,1100.3],[1074.6,894.5,1102.2,1076.4],[1239.1,866.8,1266.7,1049.8],[378.5,1122.2,767.5,1124.0],[767.5,1124.0,1708.7,988.2]],"s":[[366.9,390.8,439.7,482.5,"y",11],[381.0,978.9,453.9,1075.3,"y",11],[2080.9,843.5,2155.7,949.6,"y",9],[1054.9,728.9,1156.6,787.4,"x",10]],"o":[[[364.4,175.6],[582.2,178.3],[582.4,276.7],[1450.5,289.1],[1451.3,597.9],[1572.2,599.3],[1572.5,718.8],[2162.9,726.0],[2163.6,997.5],[1708.7,988.2],[767.5,1124.0],[378.5,1122.2],[377.6,778.1],[595.3,780.7],[595.6,876.3],[767.8,878.4],[1019.4,855.6],[1019.0,725.6],[1187.4,727.6],[1186.9,527.8],[365.3,517.9]],[[1576.1,221.8],[2243.8,227.0],[2230.2,585.3],[1572.2,577.4]]]}];
+const NF=FLOORDATA.length;
+const S=0.05, CX=1310, CY=655, T=0.24, SLAB=0.2;   // 1 px of the 1층 plan ≈ 5 cm
+const P=(x,y)=>[(x-CX)*S,(y-CY)*S];
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+const stage=document.getElementById('stage');
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(40,1,0.5,1000);
+const controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.maxPolarAngle=Math.PI/2-0.03; controls.minDistance=3; controls.maxDistance=260; controls.screenSpacePanning=false;
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x8a948f,0.68));
+const sun=new THREE.DirectionalLight(0xffffff,0.55);
+sun.position.set(-40,90,-30); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera,{left:-75,right:75,top:60,bottom:-60,near:1,far:260});
+sun.shadow.bias=-0.0005; scene.add(sun);
+
+const mGround=new THREE.MeshLambertMaterial(), mFloor=new THREE.MeshLambertMaterial(),
+      mWall=new THREE.MeshStandardMaterial({roughness:.9}), mStep=new THREE.MeshLambertMaterial();
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(500,500),mGround);
+ground.rotation.x=-Math.PI/2; ground.position.y=-0.12; ground.receiveShadow=true; scene.add(ground);
+const edgeMat=new THREE.LineBasicMaterial({transparent:true,opacity:.18});
+
+// ---------- build every floor ----------
+function makeWall(fl,a,b,c,d,id){
+  const len=Math.hypot(c-a,d-b)+T;
+  const g=new THREE.BoxGeometry(len,1,T); g.translate(0,0.5,0);
+  const m=new THREE.Mesh(g,mWall);
+  m.position.set((a+c)/2,0,(b+d)/2); m.rotation.y=-Math.atan2(d-b,c-a);
+  m.castShadow=m.receiveShadow=true; m.scale.y=H;
+  m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g),edgeMat));
+  m.userData={id,p:[a,b,c,d]}; if(/^o/.test(id)) m.userData.p0=[a,b,c,d];
+  fl.walls.add(m); return m;
+}
+let H=3, GAP=0;
+// stair: centre (cx,cz), w = width across, l = run length, r = rising direction (0 E,1 S,2 W,3 N), n steps, h total height
+const DIRS=[[1,0],[0,1],[-1,0],[0,-1]];
+function buildStairs(fl){
+  while(fl.stairs.children.length){ const m=fl.stairs.children.pop(); m.geometry.dispose(); }
+  fl.stairData.forEach((s,si)=>{
+    const [ux,uz]=DIRS[s.r], ls=s.l/s.n;
+    for(let k=0;k<s.n;k++){
+      const h=s.h*(k+1)/s.n, off=-s.l/2+ls*(k+.5);
+      const geo=ux?new THREE.BoxGeometry(ls*0.98,h,s.w):new THREE.BoxGeometry(s.w,h,ls*0.98);
+      const m=new THREE.Mesh(geo,mStep); m.position.set(s.cx+ux*off,h/2,s.cz+uz*off);
+      m.castShadow=m.receiveShadow=true; m.userData.si=si; fl.stairs.add(m);
+    }
+  });
+}
+const floors=FLOORDATA.map((d,i)=>{
+  const group=new THREE.Group(); scene.add(group);
+  const walls=new THREE.Group(), stairs=new THREE.Group(); group.add(walls,stairs);
+  const fl={i,group,walls,stairs,added:[],history:[],slabs:[],paint:[],slabOff:[],key:i===0?'maean-walls':'maean-walls-'+(i+1)};
+  d.o.forEach(poly=>{
+    const shape=new THREE.Shape(poly.map(([x,y])=>{const [a,b]=P(x,y);return new THREE.Vector2(a,-b)}));
+    const slab=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:SLAB,bevelEnabled:false}),mFloor);
+    slab.rotation.x=-Math.PI/2; slab.position.y=-SLAB+0.02; slab.receiveShadow=slab.castShadow=true; slab.userData.slab=fl.slabs.length; fl.slabs.push(slab); group.add(slab);
+  });
+  d.w.forEach(([x1,y1,x2,y2],k)=>{const [a,b]=P(x1,y1),[c,e]=P(x2,y2); makeWall(fl,a,b,c,e,'o'+k);});
+  fl.stairOrig=d.s.map(([x0,y0,x1,y1,ax,n],k)=>{
+    const [a,b]=P(x0,y0),[c,e]=P(x1,y1), h=+(n*0.16).toFixed(1);
+    const st=ax==='y'?{cx:(a+c)/2,cz:(b+e)/2,w:c-a,l:e-b,r:3,n,h}:{cx:(a+c)/2,cz:(b+e)/2,w:e-b,l:c-a,r:0,n,h};
+    if(i===1&&k===4) st.r=2;   // 2층 체육관 옆 계단: 서쪽으로 오르게
+    return st;
+  });
+  fl.stairData=JSON.parse(JSON.stringify(fl.stairOrig));
+  buildStairs(fl);
+  fl.labelOrig=LABELS0[i]; fl.labelData=JSON.parse(JSON.stringify(fl.labelOrig)); fl.chips=[];
+  return fl;
+});
+
+// ---------- colors ----------
+const PASTELS=[['기본',null],['하늘','#cfe5f4'],['민트','#d2eee0'],['라벤더','#e2dbf3'],['피치','#fbdfd1'],['레몬','#f7f0c6'],['핑크','#f6d7e2'],['세이지','#dfe8d2']];
+const FLOORCOLS=[['기본',null],['콘크리트','#c8c5be'],['나무','#d6b68c'],['하늘','#cfe5f4'],['민트','#d2eee0'],['라벤더','#e2dbf3'],['피치','#fbdfd1'],['레몬','#f7f0c6'],['핑크','#f6d7e2']];
+let floorPick=store.get('maean-floor'); if(!FLOORCOLS.some(p=>p[1]===floorPick)) floorPick=null;
+let bgPick=store.get('maean-bg'); if(!PASTELS.some(p=>p[1]===bgPick)) bgPick=null;
+function theme(){
+  const sc=bgPick||css('--scene');
+  scene.background=new THREE.Color(sc);
+  scene.fog=new THREE.Fog(sc,160,380);
+  if(bgPick) mGround.color.set(new THREE.Color(bgPick).multiplyScalar(0.93)); else mGround.color.set(css('--ground'));
+  mFloor.color.set(floorPick||css('--floor'));
+  mWall.color.set(css('--wall')); mStep.color.set(css('--step')); edgeMat.color.set(css('--fg'));
+}
+theme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',theme);
+new MutationObserver(theme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+function swatches(box,list,current,onPick,label){
+  list.forEach(([name,c])=>{
+    const b=document.createElement('button');
+    b.title=name; b.setAttribute('aria-label',name+' '+label);
+    if(c) b.style.setProperty('--c',c); else b.className='def';
+    b.setAttribute('aria-pressed',String(c===current));
+    b.addEventListener('click',()=>{onPick(c);
+      box.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); theme();});
+    box.appendChild(b);
+  });
+}
+swatches(document.getElementById('sw'),PASTELS,bgPick,c=>{bgPick=c;store.set('maean-bg',c||'')},'배경');
+swatches(document.getElementById('fsw'),FLOORCOLS,floorPick,c=>{floorPick=c;store.set('maean-floor',c||'')},'바닥');
+
+// ---------- floor selection & layout ----------
+let cur=0;            // 0..NF-1, or 'all'
+const levelY=i=>i*(H+SLAB+GAP);
+function layout(){
+  floors.forEach(f=>{
+    f.group.visible=(cur==='all'||cur===f.i);
+    f.group.position.y=cur==='all'?levelY(f.i):0;
+    f.walls.children.forEach(w=>w.scale.y=H);
+  });
+  ghost.position.y=0; marker.position.y=0.03;
+}
+const floorBtns=[...document.querySelectorAll('#floorSel button')];
+const title=document.getElementById('ttl'), spaceRow=document.getElementById('spaceRow');
+const FL=()=>cur==='all'?null:floors[cur];
+function selectFloor(v,keepCam){
+  cur=v; cancelDraw(); setHover(null); setSel(null); selectLabel(null); selectWall(null);
+  floorBtns.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.f===String(v))));
+  title.textContent=v==='all'?'매안초 전체 층 3D 모형':`매안초 ${v+1}층 3D 모형`;
+  spaceRow.hidden=v!=='all';
+  layout(); syncTools(); sync();
+  try{history.replaceState(null,'',v==='all'?'#all':'#f'+(v+1))}catch(e){}
+  if(!keepCam) go(curView);
+}
+floorBtns.forEach(b=>b.addEventListener('click',()=>selectFloor(b.dataset.f==='all'?'all':+b.dataset.f)));
+
+const hv=document.getElementById('hv'), gv=document.getElementById('gv');
+document.getElementById('h').addEventListener('input',e=>{H=+e.target.value;hv.textContent=H.toFixed(1)+' m';ghost.scale.y=H;layout();});
+document.getElementById('gap').addEventListener('input',e=>{GAP=+e.target.value;gv.textContent=GAP.toFixed(0)+' m';layout();});
+document.getElementById('st').addEventListener('change',e=>floors.forEach(f=>f.stairs.visible=e.target.checked));
+
+// ---------- shadows ----------
+let shadowsOn=store.get('maean-shadow')!=='off';
+const shBox=document.getElementById('sh');
+function applyShadows(){ floors.forEach(f=>{f.walls.children.forEach(w=>w.castShadow=shadowsOn); f.stairs.children.forEach(s=>s.castShadow=shadowsOn);}); }
+shBox.checked=shadowsOn;
+shBox.addEventListener('change',()=>{shadowsOn=shBox.checked;store.set('maean-shadow',shadowsOn?'on':'off');applyShadows();});
+
+// ---------- camera ----------
+let curView='v3d', anim=null;
+function viewFor(id){
+  const top=cur==='all'?levelY(NF-1)+H:0, mid=top*0.45;
+  const V=cur==='all'
+    ?{v3d:[[-34,78+top,100+top*0.5],[0,mid,2]],vtop:[[0,110+top,0.01],[0,top,0]],vlow:[[-70,14+mid,62],[-6,mid,0]]}
+    :{v3d:[[-20,62,68],[0,0,2]],vtop:[[0,95,0.01],[0,0,0]],vlow:[[-48,10,38],[-6,0,0]]};
+  return V[id];
+}
+function go(id,instant){
+  curView=id;
+  document.querySelectorAll('#v3d,#vtop,#vlow').forEach(b=>b.setAttribute('aria-pressed',b.id===id));
+  const [p,t]=viewFor(id), to=new THREE.Vector3(...p), tt=new THREE.Vector3(...t);
+  if(instant||matchMedia('(prefers-reduced-motion: reduce)').matches){camera.position.copy(to);controls.target.copy(tt);return}
+  anim={fp:camera.position.clone(),ft:controls.target.clone(),to,tt,t0:performance.now()};
+}
+['v3d','vtop','vlow'].forEach(id=>document.getElementById(id).addEventListener('click',()=>go(id)));
+// drag mode: rotate (default) or pan, so the far ends of the building can be brought to the middle
+const dragBtns=[...document.querySelectorAll('#dragMode button')];
+function setDrag(m){
+  dragBtns.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m===m)));
+  controls.mouseButtons.LEFT=m==='pan'?THREE.MOUSE.PAN:THREE.MOUSE.ROTATE;
+  controls.mouseButtons.RIGHT=m==='pan'?THREE.MOUSE.ROTATE:THREE.MOUSE.PAN;
+  controls.touches.ONE=m==='pan'?THREE.TOUCH.PAN:THREE.TOUCH.ROTATE;
+  store.set('maean-drag',m);
+}
+dragBtns.forEach(b=>b.addEventListener('click',()=>setDrag(b.dataset.m)));
+setDrag(store.get('maean-drag')==='pan'?'pan':'rotate');
+// double-click (double-tap) on the floor: bring that spot to the middle of the screen
+renderer.domElement.addEventListener('dblclick',e=>{
+  if(cur==='all') return;
+  const g=pickGround(e); if(!g) return;
+  const tt=new THREE.Vector3(g[0],controls.target.y,g[1]), d=tt.clone().sub(controls.target);
+  const to=camera.position.clone().add(d);
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){camera.position.copy(to);controls.target.copy(tt);return}
+  anim={fp:camera.position.clone(),ft:controls.target.clone(),to,tt,t0:performance.now()};
+});
+function fit(){
+  const w=innerWidth,h=innerHeight; renderer.setSize(w,h); camera.aspect=w/h;
+  camera.fov=w/h<1?62:40; camera.updateProjectionMatrix();
+}
+addEventListener('resize',fit); fit();
+
+// ---------- wall editing (one floor at a time) ----------
+const mHover=new THREE.MeshStandardMaterial({color:0xe0705a,roughness:.9});
+const mGhost=new THREE.MeshStandardMaterial({color:0x2f9c86,roughness:.9,transparent:true,opacity:.6});
+const ray=new THREE.Raycaster(), ptr=new THREE.Vector2(), plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+let tool='view', hovered=null, start=null, seq=0;
+const undoB=document.getElementById('undo'), resetB=document.getElementById('reset'), cnt=document.getElementById('cnt'),
+      tip=document.getElementById('tip'), ortho=document.getElementById('ortho'), orthoRow=document.getElementById('orthoRow');
+const toolBtns=[...document.querySelectorAll('#tool button')];
+const TIPS={view:'모형을 돌려 보는 기본 상태입니다.',
+  erase:'지울 벽을 클릭하세요. 드래그하면 화면이 돌아갑니다.',
+  add:'바닥을 클릭해 시작점, 한 번 더 클릭해 끝점을 정합니다. 주황 고리가 보이면 기존 벽에 붙는 자리입니다. Esc로 취소.',
+  paint:'색을 고르고 실을 누르면 그 실 바닥이 칠해집니다. 문 틈은 막힌 것으로 봅니다. 바닥판 지우기를 켜고 누르면 그 바닥판이 통째로 사라집니다.',
+  wedit:'벽을 눌러 고릅니다. 주황 점을 끌면 길이가, 벽을 끌면 위치가 바뀝니다. 기존 벽에 자석처럼 붙습니다.',
+  label:'빈 바닥을 누르면 새 이름표가 생깁니다. 이름표를 누르면 이름과 연결 코드를 고치고, 끌면 옮겨집니다.',
+  stair:'계단을 클릭해 고르고, 끌어서 옮깁니다. 크기와 방향은 아래에서 바꿉니다. 주황 화살표가 오르는 방향입니다.',
+  all:'편집은 층을 하나 골랐을 때 할 수 있습니다.'};
+const ghostGeo=new THREE.BoxGeometry(1,1,T); ghostGeo.translate(0,0.5,0);
+const ghost=new THREE.Mesh(ghostGeo,mGhost); ghost.visible=false; scene.add(ghost);
+const marker=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.06,24),mGhost); marker.visible=false; scene.add(marker);
+
+function save(fl){
+  store.set(fl.key,JSON.stringify({
+    hidden:fl.walls.children.filter(w=>!w.visible).map(w=>w.userData.id),
+    added:fl.added.map(m=>({id:m.userData.id,p:m.userData.p})),
+    moved:movedOf(fl), paint:fl.paint, slabOff:fl.slabOff,
+    stairs:stairsEdited(fl)?fl.stairData:undefined,
+    labels:labelsEdited(fl)?fl.labelData:undefined}));
+  if(shared) pushFloor(fl);
+}
+function movedOf(fl){ const o={}; fl.walls.children.forEach(w=>{ if(w.userData.p0&&w.userData.p.some((v,i)=>Math.abs(v-w.userData.p0[i])>0.001)) o[w.userData.id]=w.userData.p; }); return o; }
+function applyMoved(fl,mv){ if(!mv) return; fl.walls.children.forEach(w=>{ const p=mv[w.userData.id]; if(p&&w.userData.p0) updateWall(w,p); }); }
+function stairsEdited(fl){ return JSON.stringify(fl.stairData)!==JSON.stringify(fl.stairOrig); }
+function sync(){
+  const fl=FL();
+  if(!fl){
+    let nh=0,na=0,ns=0,nl=0,nm=0,np=0; floors.forEach(f=>{nm+=Object.keys(movedOf(f)).length; np+=f.paint.length+f.slabOff.length; nh+=f.walls.children.filter(w=>!w.visible).length; na+=f.added.length; if(stairsEdited(f)) ns++; if(labelsEdited(f)) nl++;});
+    const parts=[]; if(nh) parts.push(`지운 벽 ${nh}개`); if(na) parts.push(`추가한 벽 ${na}개`); if(ns) parts.push(`계단 바꾼 층 ${ns}개`); if(np) parts.push(`바닥 색·바닥판 ${np}곳`); if(nl) parts.push(`이름표 바꾼 층 ${nl}개`); if(nm) parts.push(`조절한 벽 ${nm}개`);
+    cnt.textContent=parts.length?'전체 '+parts.join(' · '):'모든 층이 원래 배치도 그대로';
+    undoB.disabled=resetB.disabled=true; return;
+  }
+  const nh=fl.walls.children.filter(w=>!w.visible).length, na=fl.added.length, se=stairsEdited(fl), le=labelsEdited(fl), nm=Object.keys(movedOf(fl)).length, np=fl.paint.length, ns2=fl.slabOff.length;
+  const parts=[]; if(nh) parts.push(`지운 벽 ${nh}개`); if(na) parts.push(`추가한 벽 ${na}개`); if(se) parts.push('계단 바꿈'); if(nm) parts.push(`조절한 벽 ${nm}개`); if(np) parts.push(`색칠한 실 ${np}곳`); if(ns2) parts.push(`지운 바닥판 ${ns2}개`); if(le) parts.push('이름표 바꿈');
+  cnt.textContent=`${fl.i+1}층: `+(parts.length?parts.join(' · '):'원래 배치도 그대로');
+  undoB.disabled=!fl.history.length; resetB.disabled=!nh&&!na&&!se&&!le&&!nm&&!np&&!ns2;
+  scheduleRepaint(fl);
+  if(shared&&!shared.canWrite) undoB.disabled=resetB.disabled=true;
+  save(fl);
+}
+function addWall(fl,p,id){
+  const m=makeWall(fl,p[0],p[1],p[2],p[3],id||('a'+Date.now().toString(36)+(seq++)));
+  m.castShadow=shadowsOn; fl.added.push(m); return m;
+}
+function removeAdded(fl,m){ fl.walls.remove(m); const k=fl.added.indexOf(m); if(k>=0) fl.added.splice(k,1); m.geometry.dispose(); }
+floors.forEach(fl=>{
+  try{
+    const st=JSON.parse(store.get(fl.key)||'{}');
+    (st.added||[]).forEach(a=>addWall(fl,a.p,a.id));
+    applyMoved(fl,st.moved);
+    if(Array.isArray(st.paint)) fl.paint=st.paint; if(Array.isArray(st.slabOff)) fl.slabOff=st.slabOff;
+    if(Array.isArray(st.stairs)){ fl.stairData=st.stairs; buildStairs(fl); }
+    if(Array.isArray(st.labels)) fl.labelData=st.labels;
+    const hid=new Set(st.hidden||[]);
+    fl.walls.children.forEach(w=>{if(hid.has(w.userData.id)) w.visible=false});
+  }catch(e){}
+});
+applyShadows();
+
+function setTool(t){
+  tool=t; cancelDraw(); setHover(null); setSel(null); selectLabel(null); selectWall(null);
+  toolBtns.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.t===t)));
+  syncTools();
+}
+function syncTools(){
+  const all=cur==='all';
+  if(all&&tool!=='view'){ tool='view'; toolBtns.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.t==='view'))); }
+  toolBtns.forEach(b=>b.disabled=(all||(shared&&!shared.canWrite))&&b.dataset.t!=='view');
+  tip.textContent=all?TIPS.all:TIPS[tool]; orthoRow.hidden=tool!=='add'; snapRow.hidden=tool!=='add'&&tool!=='wedit'; wallBox.hidden=tool!=='wedit'; paintBox.hidden=tool!=='paint'; if(tool!=='add') cursorRing.visible=false;
+  stairBox.hidden=tool!=='stair'; sCopy.hidden=cur===0; cv.style.cursor='';
+  labelBox.hidden=tool!=='label'; labelsEl.classList.toggle('inert',tool!=='view'&&tool!=='label');
+  document.body.classList.toggle('labeling',tool==='label');
+  document.body.classList.toggle('erasing',tool!=='view');
+}
+toolBtns.forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.t)));
+
+function toNDC(ev){const r=renderer.domElement.getBoundingClientRect();
+  ptr.set((ev.clientX-r.left)/r.width*2-1,-(ev.clientY-r.top)/r.height*2+1); ray.setFromCamera(ptr,camera);}
+function pickWall(ev){ const fl=FL(); if(!fl) return null; toNDC(ev); const hit=ray.intersectObjects(fl.walls.children.filter(w=>w.visible),false)[0]; return hit?hit.object:null; }
+function pickGround(ev){ toNDC(ev); const v=new THREE.Vector3(); return ray.ray.intersectPlane(plane,v)?[v.x,v.z]:null; }
+function setHover(m){ if(hovered===m) return; if(hovered) hovered.material=mWall; hovered=m; if(m) m.material=mHover; }
+
+const r1=v=>Math.round(v*10)/10;
+const snapBox=document.getElementById('snap'), snapRow=document.getElementById('snapRow');
+// magnet radius: a fixed number of screen pixels, converted to metres at the current zoom
+function snapR(px){ const d=camera.position.distanceTo(controls.target); return Math.min(3,Math.max(0.25,px*2*d*Math.tan(camera.fov*Math.PI/360)/innerHeight)); }
+let snapSkip=null;
+function wallSegs(){ const fl=FL(); return fl?fl.walls.children.filter(w=>w.visible&&w!==snapSkip).map(w=>w.userData.p):[]; }
+function projSeg(p,[a,b,c,d]){ const vx=c-a,vy=d-b,L=vx*vx+vy*vy; if(!L) return [a,b];
+  const t=Math.max(0,Math.min(1,((p[0]-a)*vx+(p[1]-b)*vy)/L)); return [a+vx*t,b+vy*t]; }
+// free placement: wall ends first, then anywhere along a wall
+function magnet(p){
+  if(!snapBox.checked) return null;
+  const segs=wallSegs(), rE=snapR(18), rL=snapR(12);
+  let best=null,bd=rE;
+  segs.forEach(q=>[[q[0],q[1]],[q[2],q[3]]].forEach(e=>{const d=Math.hypot(e[0]-p[0],e[1]-p[1]); if(d<bd){bd=d;best={pt:e,kind:'end'}}}));
+  if(best) return best;
+  bd=rL;
+  segs.forEach(q=>{const e=projSeg(p,q),d=Math.hypot(e[0]-p[0],e[1]-p[1]); if(d<bd){bd=d;best={pt:e,kind:'line'}}});
+  return best;
+}
+function snapStart(p){ return magnet(p)||{pt:[r1(p[0]),r1(p[1])],kind:null}; }
+function snapEnd(p){
+  if(!ortho.checked){
+    const m=magnet(p); if(m&&Math.hypot(m.pt[0]-start[0],m.pt[1]-start[1])>0.15) return m;
+    return {pt:[r1(p[0]),r1(p[1])],kind:null};
+  }
+  const horiz=Math.abs(p[0]-start[0])>Math.abs(p[1]-start[1]);
+  const e=horiz?[r1(p[0]),start[1]]:[start[0],r1(p[1])];
+  if(!snapBox.checked) return {pt:e,kind:null};
+  const segs=wallSegs(), r=snapR(18), W={end:0,line:0.25,align:0.5};
+  let best=null,bs=Infinity;
+  const consider=(pt,kind)=>{
+    const dd=Math.hypot(pt[0]-e[0],pt[1]-e[1]);
+    if(dd>r||Math.hypot(pt[0]-start[0],pt[1]-start[1])<0.15) return;
+    const sc=dd+W[kind]*r; if(sc<bs){bs=sc;best={pt,kind}}
+  };
+  // where the straight line meets an existing wall
+  segs.forEach(([a,b,c,d])=>{
+    if(horiz){ if(Math.abs(d-b)<1e-6) return; const t=(start[1]-b)/(d-b); if(t<-0.01||t>1.01) return; consider([a+(c-a)*t,start[1]],'line'); }
+    else { if(Math.abs(c-a)<1e-6) return; const t=(start[0]-a)/(c-a); if(t<-0.01||t>1.01) return; consider([start[0],b+(d-b)*t],'line'); }
+  });
+  // wall ends: exactly on the line, or lined up with it
+  segs.forEach(q=>[[q[0],q[1]],[q[2],q[3]]].forEach(pt=>{
+    const proj=horiz?[pt[0],start[1]]:[start[0],pt[1]], off=Math.hypot(pt[0]-proj[0],pt[1]-proj[1]);
+    if(off<0.05) consider(proj,'end'); else if(off<r*2.5) consider(proj,'align');
+  }));
+  return best||{pt:e,kind:null};
+}
+// cursor ring: orange when the point will stick to a wall
+const ringGeo=new THREE.RingGeometry(0.62,1,32); ringGeo.rotateX(-Math.PI/2);
+const mRingOn=new THREE.MeshBasicMaterial({color:0xe07a2e,transparent:true,opacity:.95,depthTest:false});
+const mRingOff=new THREE.MeshBasicMaterial({color:0x2f9c86,transparent:true,opacity:.55,depthTest:false});
+const cursorRing=new THREE.Mesh(ringGeo,mRingOff); cursorRing.visible=false; cursorRing.renderOrder=10; scene.add(cursorRing);
+function showRing(s){
+  if(!s){cursorRing.visible=false;return}
+  const k=snapR(s.kind?9:6); cursorRing.scale.set(k,1,k);
+  cursorRing.material=s.kind?mRingOn:mRingOff;
+  cursorRing.position.set(s.pt[0],0.06,s.pt[1]); cursorRing.visible=true;
+}
+function showGhost(e){
+  const [a,b]=start,[c,d]=e, len=Math.hypot(c-a,d-b);
+  if(len<0.05){ghost.visible=false;return}
+  ghost.scale.set(len+T,H,1); ghost.position.set((a+c)/2,0,(b+d)/2); ghost.rotation.y=-Math.atan2(d-b,c-a); ghost.visible=true;
+}
+function cancelDraw(){ start=null; ghost.visible=false; marker.visible=false; if(typeof cursorRing!=='undefined') cursorRing.visible=false; }
+addEventListener('keydown',e=>{ if(e.key==='Escape') cancelDraw(); });
+
+let down=null;
+const cv=renderer.domElement;
+cv.addEventListener('pointerdown',e=>{down=[e.clientX,e.clientY]});
+cv.addEventListener('pointermove',e=>{
+  if(tool==='erase'&&e.pointerType==='mouse'&&!e.buttons) setHover(pickWall(e));
+  if(tool==='wedit'&&e.pointerType==='mouse'&&!e.buttons&&!wdrag){ toNDC(e);
+    const hh=handles[0].visible&&ray.intersectObjects(handles,false).length, w=hh?null:pickWall(e);
+    cv.style.cursor=hh?'grab':w?(w===wsel?'move':'pointer'):''; }
+  if(tool==='stair'&&e.pointerType==='mouse'&&!e.buttons&&!sdrag) cv.style.cursor=pickStair(e)?'move':'';
+  if(tool==='add'&&!e.buttons&&FL()){
+    const p=pickGround(e); if(!p){showRing(null);return}
+    const sn=start?snapEnd(p):snapStart(p);
+    showRing(sn); if(start) showGhost(sn.pt);
+  }
+});
+cv.addEventListener('pointerleave',()=>{setHover(null);showRing(null);});
+cv.addEventListener('pointerup',e=>{
+  const fl=FL();
+  if(!fl||tool==='view'||!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>6) return;
+  if(tool==='stair'){ if(!pickStair(e)) setSel(null); return; }
+  if(tool==='paint'){ paintClick(e); return; }
+  if(tool==='wedit'){ toNDC(e); if(!(handles[0].visible&&ray.intersectObjects(handles,false).length)&&!pickWall(e)) selectWall(null); return; }
+  if(tool==='label'){ if(lsel!=null) selectLabel(null); else { const g=pickGround(e); if(g) addLabelAt(g); } return; }
+  if(tool==='erase'){
+    const m=pickWall(e); if(!m) return;
+    setHover(null); m.visible=false; fl.history.push({t:'hide',m}); sync();
+  } else if(tool==='add'){
+    const p=pickGround(e); if(!p) return;
+    if(!start){ start=snapStart(p).pt; marker.position.set(start[0],0.03,start[1]); marker.visible=true; return; }
+    const end=snapEnd(p).pt;
+    if(Math.hypot(end[0]-start[0],end[1]-start[1])<0.15) return;
+    const m=addWall(fl,[start[0],start[1],end[0],end[1]]);
+    fl.history.push({t:'add',m}); cancelDraw(); sync();
+  }
+});
+undoB.addEventListener('click',()=>{
+  const fl=FL(); if(!fl) return; const a=fl.history.pop(); if(!a) return;
+  if(a.t==='hide') a.m.visible=true;
+  else if(a.t==='stairs'){ fl.stairData=a.prev; setSel(null); refreshStairs(); }
+  else if(a.t==='paint'){ fl.paint=a.prev.paint; fl.slabOff=a.prev.slabOff; applySlabs(fl); repaint(fl); }
+  else if(a.t==='wallp'){ updateWall(a.m,a.prev); placeHandles(); fillWallPanel(); }
+  else if(a.t==='labels'){ fl.labelData=a.prev; lsel=null; renderChips(fl); fillLabelPanel(); }
+  else removeAdded(fl,a.m);
+  sync();
+});
+resetB.addEventListener('click',()=>{
+  const fl=FL(); if(!fl) return;
+  selectWall(null); fl.walls.children.forEach(w=>{ if(w.userData.p0) updateWall(w,w.userData.p0); });
+  fl.paint=[]; fl.slabOff=[]; applySlabs(fl); repaint(fl);
+  fl.added.slice().forEach(m=>removeAdded(fl,m)); fl.walls.children.forEach(w=>w.visible=true);
+  fl.stairData=JSON.parse(JSON.stringify(fl.stairOrig)); setSel(null); refreshStairs(); resetLabels(fl);
+  fl.history=[]; cancelDraw(); sync();
+});
+
+// ---------- stair editor ----------
+const stairBox=document.getElementById('stairBox'), sEdit=document.getElementById('sEdit'), sCopy=document.getElementById('sCopy');
+const SL={w:['sW','sWv',' m'],l:['sL','sLv',' m'],h:['sH','sHv',' m'],n:['sN','sNv','단']};
+const mSel=new THREE.LineBasicMaterial({color:0xe07a2e,depthTest:false,transparent:true});
+let sel=null, selG=null, pending=null, sdrag=null;
+function pickStair(e){
+  const fl=FL(); if(!fl||!fl.stairs.visible) return null;
+  toNDC(e); const hit=ray.intersectObjects(fl.stairs.children,false)[0]; return hit?hit.object:null;
+}
+function showSel(){
+  if(selG){ scene.remove(selG); selG.traverse(o=>{if(o.geometry)o.geometry.dispose()}); selG=null; }
+  const fl=FL(); if(sel==null||!fl||!fl.stairData[sel]) return;
+  const s=fl.stairData[sel], [ux,uz]=DIRS[s.r];
+  const g=new THREE.BoxGeometry(ux?s.l:s.w,s.h,ux?s.w:s.l);
+  const box=new THREE.LineSegments(new THREE.EdgesGeometry(g),mSel); box.position.set(s.cx,s.h/2,s.cz); g.dispose();
+  const dir=new THREE.Vector3(ux,0,uz), org=new THREE.Vector3(s.cx-ux*s.l/2,s.h+0.35,s.cz-uz*s.l/2);
+  const arrow=new THREE.ArrowHelper(dir,org,s.l,0xe07a2e,Math.min(1.4,s.l*0.3),Math.min(0.9,Math.max(0.4,s.w*0.5)));
+  [arrow.line,arrow.cone].forEach(o=>{o.material.depthTest=false;o.material.transparent=true;o.renderOrder=20});
+  box.renderOrder=20; selG=new THREE.Group(); selG.add(box,arrow); scene.add(selG);
+}
+function fillPanel(){
+  const fl=FL(); sEdit.hidden=sel==null||!fl;
+  if(sel==null||!fl) return; const s=fl.stairData[sel];
+  for(const k in SL){ const [id,oid,u]=SL[k]; document.getElementById(id).value=s[k];
+    document.getElementById(oid).textContent=(k==='n'?s[k]:(+s[k]).toFixed(1))+u; }
+}
+function setSel(i){ sel=i; showSel(); fillPanel(); }
+function refreshStairs(){ const fl=FL(); if(!fl) return; buildStairs(fl); applyShadows(); showSel(); fillPanel(); }
+function begin(){ const fl=FL(); if(fl&&pending==null) pending=JSON.stringify(fl.stairData); }
+function commit(){
+  const fl=FL(); if(!fl||pending==null) return;
+  if(pending!==JSON.stringify(fl.stairData)) fl.history.push({t:'stairs',prev:JSON.parse(pending)});
+  pending=null; sync();
+}
+function edit(fn){ const fl=FL(); if(!fl) return; begin(); fn(fl); refreshStairs(); commit(); }
+for(const k in SL){
+  const el=document.getElementById(SL[k][0]);
+  el.addEventListener('input',()=>{ const fl=FL(); if(!fl||sel==null) return; begin();
+    fl.stairData[sel][k]=k==='n'?Math.round(+el.value):Math.round(+el.value*10)/10; refreshStairs(); });
+  el.addEventListener('change',commit);
+}
+document.getElementById('sRot').addEventListener('click',()=>edit(fl=>{const s=fl.stairData[sel]; s.r=(s.r+1)%4;}));
+document.getElementById('sFlip').addEventListener('click',()=>edit(fl=>{const s=fl.stairData[sel]; s.r=(s.r+2)%4;}));
+document.getElementById('sDel').addEventListener('click',()=>edit(fl=>{fl.stairData.splice(sel,1); sel=null;}));
+document.getElementById('sAdd').addEventListener('click',()=>edit(fl=>{
+  const t=controls.target; fl.stairData.push({cx:r1(t.x),cz:r1(t.z),w:1.8,l:5,r:3,n:10,h:1.6}); sel=fl.stairData.length-1;
+  document.getElementById('st').checked=true; floors.forEach(f=>f.stairs.visible=true);
+}));
+sCopy.addEventListener('click',()=>edit(fl=>{ fl.stairData=JSON.parse(JSON.stringify(floors[0].stairData)); sel=null; }));
+// drag a stair to move it (capture phase, so the camera does not rotate)
+stage.addEventListener('pointerdown',e=>{
+  if(tool!=='stair'||e.button>0) return;
+  const m=pickStair(e); if(!m) return;
+  setSel(m.userData.si);
+  const g=pickGround(e); if(!g) return;
+  const s=FL().stairData[sel];
+  sdrag={id:e.pointerId,g0:g,c0:[s.cx,s.cz]}; controls.enabled=false; begin(); cv.style.cursor='grabbing';
+},true);
+stage.addEventListener('pointermove',e=>{
+  if(!sdrag||e.pointerId!==sdrag.id) return;
+  const g=pickGround(e); if(!g) return; const s=FL().stairData[sel];
+  s.cx=r1(sdrag.c0[0]+g[0]-sdrag.g0[0]); s.cz=r1(sdrag.c0[1]+g[1]-sdrag.g0[1]); refreshStairs();
+});
+addEventListener('pointerup',e=>{ if(!sdrag) return; sdrag=null; controls.enabled=true; cv.style.cursor=''; commit(); });
+
+// ---------- wall adjust: pick a wall, drag its ends (length) or the wall itself (position) ----------
+const wallBox=document.getElementById('wallBox'), wEdit=document.getElementById('wEdit'), wLen=document.getElementById('wLen'),
+      wKeep=document.getElementById('wKeep');
+const mWallSel=new THREE.MeshStandardMaterial({color:0xf2b48a,roughness:.9});
+const mHandle=new THREE.MeshBasicMaterial({color:0xe07a2e,depthTest:false,transparent:true});
+const handles=[0,1].map(k=>{ const h=new THREE.Mesh(new THREE.SphereGeometry(1,20,14),mHandle); h.visible=false; h.renderOrder=25; h.userData.k=k; scene.add(h); return h; });
+let wsel=null, wdrag=null;
+function updateWall(m,p){
+  const [a,b,c,d]=p, len=Math.hypot(c-a,d-b)+T;
+  const g=new THREE.BoxGeometry(len,1,T); g.translate(0,0.5,0);
+  m.geometry.dispose(); m.geometry=g;
+  const old=m.children[0]; if(old){ m.remove(old); old.geometry.dispose(); }
+  m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g),edgeMat));
+  m.position.set((a+c)/2,0,(b+d)/2); m.rotation.y=-Math.atan2(d-b,c-a);
+  m.userData.p=p.slice();
+}
+function wallMoved(m){ const p=m.userData.p,q=m.userData.p0; return !!q&&p.some((v,i)=>Math.abs(v-q[i])>0.001); }
+function placeHandles(){
+  const show=wsel&&wsel.visible&&tool==='wedit';
+  handles.forEach((h,k)=>{
+    h.visible=!!show; if(!show) return;
+    const p=wsel.userData.p, s=snapR(7); h.scale.set(s,s,s); h.position.set(p[k*2],H+0.05,p[k*2+1]);
+  });
+}
+function fillWallPanel(){
+  wEdit.hidden=!wsel; if(!wsel) return;
+  const p=wsel.userData.p; wLen.value=Math.hypot(p[2]-p[0],p[3]-p[1]).toFixed(2);
+}
+function selectWall(m){
+  if(wsel&&wsel!==hovered) wsel.material=mWall;
+  wsel=m; if(m) m.material=mWallSel;
+  placeHandles(); fillWallPanel();
+}
+function planeHit(e,y){ toNDC(e); const v=new THREE.Vector3(); return ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),-y),v)?[v.x,v.z]:null; }
+// snapping along a fixed direction: other walls crossing the line, or wall ends lying on / lined up with it
+function snapAlong(o,u,pt){
+  const t0=Math.round(((pt[0]-o[0])*u[0]+(pt[1]-o[1])*u[1])*20)/20, e=[o[0]+u[0]*t0,o[1]+u[1]*t0];
+  if(!snapBox.checked) return {pt:e,kind:null};
+  const segs=wallSegs(), r=snapR(18), W={end:0,line:0.25,align:0.5}; let best=null,bs=Infinity;
+  const consider=(q,kind)=>{ const dd=Math.hypot(q[0]-e[0],q[1]-e[1]); if(dd>r||Math.hypot(q[0]-o[0],q[1]-o[1])<0.15) return;
+    const sc=dd+W[kind]*r; if(sc<bs){bs=sc;best={pt:q,kind}} };
+  segs.forEach(([a,b,c,d])=>{
+    const vx=c-a,vy=d-b, den=u[0]*vy-u[1]*vx; if(Math.abs(den)<1e-6) return;
+    const s=((a-o[0])*u[1]-(b-o[1])*u[0])/den; if(s<-0.01||s>1.01) return;
+    consider([a+vx*s,b+vy*s],'line');
+  });
+  segs.forEach(q=>[[q[0],q[1]],[q[2],q[3]]].forEach(pp=>{
+    const t=(pp[0]-o[0])*u[0]+(pp[1]-o[1])*u[1], proj=[o[0]+u[0]*t,o[1]+u[1]*t], off=Math.hypot(pp[0]-proj[0],pp[1]-proj[1]);
+    if(off<0.05) consider(proj,'end'); else if(off<r*2.5) consider(proj,'align');
+  }));
+  return best||{pt:e,kind:null};
+}
+function wbegin(){ return wsel.userData.p.slice(); }
+function wcommit(prev){
+  const fl=FL(); if(!fl||!wsel) return;
+  if(prev.some((v,i)=>Math.abs(v-wsel.userData.p[i])>0.001)) fl.history.push({t:'wallp',m:wsel,prev});
+  sync(); fillWallPanel();
+}
+stage.addEventListener('pointerdown',e=>{
+  if(tool!=='wedit'||e.button>0||!FL()) return;
+  toNDC(e);
+  const hh=handles[0].visible?ray.intersectObjects(handles,false)[0]:null;
+  if(hh){ wdrag={mode:'end',k:hh.object.userData.k,id:e.pointerId,x:e.clientX,y:e.clientY,prev:wbegin(),moved:false,y0:H+0.05}; }
+  else{
+    const hit=ray.intersectObjects(FL().walls.children.filter(w=>w.visible),false)[0];
+    if(!hit) return;
+    if(hit.object!==wsel){ setHover(null); selectWall(hit.object); }
+    const g=planeHit(e,hit.point.y); if(!g) return;
+    wdrag={mode:'body',g0:g,y0:hit.point.y,id:e.pointerId,x:e.clientX,y:e.clientY,prev:wbegin(),moved:false};
+  }
+  controls.enabled=false; cv.style.cursor=wdrag.mode==='end'?'grabbing':'move';
+},true);
+stage.addEventListener('pointermove',e=>{
+  if(!wdrag||e.pointerId!==wdrag.id) return;
+  if(!wdrag.moved&&Math.hypot(e.clientX-wdrag.x,e.clientY-wdrag.y)<4) return;
+  wdrag.moved=true; snapSkip=wsel;
+  const g=planeHit(e,wdrag.y0); if(!g){ snapSkip=null; return; }
+  const p=wdrag.prev.slice();
+  if(wdrag.mode==='end'){
+    const k=wdrag.k, o=k?[p[0],p[1]]:[p[2],p[3]];
+    let n;
+    if(wKeep.checked){
+      const L=Math.hypot(p[2]-p[0],p[3]-p[1])||1, u=k?[(p[2]-p[0])/L,(p[3]-p[1])/L]:[(p[0]-p[2])/L,(p[1]-p[3])/L];
+      n=snapAlong(o,u,g).pt;
+    } else { const m=magnet(g); n=m?m.pt:[r1(g[0]),r1(g[1])]; }
+    if(Math.hypot(n[0]-o[0],n[1]-o[1])<0.2) { snapSkip=null; return; }
+    if(k){ p[2]=n[0]; p[3]=n[1]; } else { p[0]=n[0]; p[1]=n[1]; }
+  } else {
+    let dx=Math.round((g[0]-wdrag.g0[0])*20)/20, dz=Math.round((g[1]-wdrag.g0[1])*20)/20;
+    // let either end stick to a nearby wall
+    let best=null;
+    [[p[0]+dx,p[1]+dz],[p[2]+dx,p[3]+dz]].forEach(q=>{ const m=magnet(q); if(m){ const d=Math.hypot(m.pt[0]-q[0],m.pt[1]-q[1]); if(!best||d<best.d) best={d,ox:m.pt[0]-q[0],oz:m.pt[1]-q[1]}; } });
+    if(best){ dx+=best.ox; dz+=best.oz; }
+    p[0]+=dx; p[2]+=dx; p[1]+=dz; p[3]+=dz;
+  }
+  snapSkip=null;
+  updateWall(wsel,p); placeHandles(); fillWallPanel();
+},true);
+addEventListener('pointerup',()=>{
+  if(!wdrag) return; const d=wdrag; wdrag=null; controls.enabled=true; cv.style.cursor='';
+  if(d.moved) wcommit(d.prev);
+});
+// panel
+wLen.addEventListener('change',()=>{
+  if(!wsel) return; const L=Math.max(0.2,Math.min(80,+wLen.value||0)); const prev=wbegin(), p=prev.slice();
+  const cl=Math.hypot(p[2]-p[0],p[3]-p[1])||1, ux=(p[2]-p[0])/cl, uz=(p[3]-p[1])/cl;
+  p[2]=p[0]+ux*L; p[3]=p[1]+uz*L; updateWall(wsel,p); placeHandles(); wcommit(prev);
+});
+document.getElementById('wRot').addEventListener('click',()=>{
+  if(!wsel) return; const prev=wbegin(), p=prev.slice(), cx=(p[0]+p[2])/2, cz=(p[1]+p[3])/2;
+  const r=([x,z])=>[cx-(z-cz),cz+(x-cx)]; const a=r([p[0],p[1]]), b=r([p[2],p[3]]);
+  updateWall(wsel,[a[0],a[1],b[0],b[1]]); placeHandles(); wcommit(prev);
+});
+document.getElementById('wDel').addEventListener('click',()=>{
+  const fl=FL(); if(!fl||!wsel) return; const m=wsel; selectWall(null); m.visible=false; fl.history.push({t:'hide',m}); sync();
+});
+
+// ---------- room floor colours & hiding floor slabs ----------
+// Rooms are found by flood-filling a 10 cm grid of the floor, with walls drawn in and door gaps closed.
+const PG={res:0.1};
+(()=>{ let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;
+  FLOORDATA.forEach(d=>d.o.forEach(poly=>poly.forEach(([x,y])=>{const [a,b]=P(x,y); x0=Math.min(x0,a);x1=Math.max(x1,a);z0=Math.min(z0,b);z1=Math.max(z1,b);})));
+  PG.x0=x0-1; PG.z0=z0-1; PG.W=Math.ceil((x1-x0+2)/PG.res); PG.H=Math.ceil((z1-z0+2)/PG.res); })();
+const PCOLS=[['하늘','#9fcdee'],['민트','#a3dcbd'],['라벤더','#c6b8ec'],['피치','#f6b997'],['레몬','#f0d978'],['핑크','#eeadc6'],['세이지','#bcd4a3'],['나무','#d8b07c'],['회색','#bfc6cc']];
+const paintBox=document.getElementById('paintBox'), pSlab=document.getElementById('pSlab'), pRestore=document.getElementById('pRestore');
+let pColor=PCOLS[0][1], pSlabMode=false;
+floors.forEach(fl=>{ fl.paint=fl.paint||[]; fl.slabOff=fl.slabOff||[]; });
+
+function segHit(o,u,maxT,[a,b,c,d]){ // ray o+u·t against segment, returns t or null
+  const vx=c-a,vy=d-b, den=u[0]*vy-u[1]*vx; if(Math.abs(den)<1e-9) return null;
+  const t=((a-o[0])*vy-(b-o[1])*vx)/den, s=((a-o[0])*u[1]-(b-o[1])*u[0])/den;
+  return t>0.05&&t<=maxT&&s>=-0.01&&s<=1.01?t:null;
+}
+function distSeg(p,q){ const e=projSeg(p,q); return Math.hypot(e[0]-p[0],e[1]-p[1]); }
+// virtual "door" segments: close small gaps at free wall ends
+function doorSegs(segs){
+  const out=[];
+  segs.forEach((s,si)=>{
+    const L=Math.hypot(s[2]-s[0],s[3]-s[1]); if(L<0.05) return;
+    [[0,1],[2,3]].forEach(([ix,iz],k)=>{
+      const e=[s[ix],s[iz]], u=k?[(s[2]-s[0])/L,(s[3]-s[1])/L]:[(s[0]-s[2])/L,(s[1]-s[3])/L];
+      if(segs.some((q,qi)=>qi!==si&&distSeg(e,q)<0.3)) return;       // already joined to another wall
+      let best=null;
+      segs.forEach((q,qi)=>{ if(qi===si) return;
+        // a wall continuing on the same line (a door in a straight wall)
+        [[q[0],q[1]],[q[2],q[3]]].forEach(f=>{
+          const t=(f[0]-e[0])*u[0]+(f[1]-e[1])*u[1], off=Math.abs((f[0]-e[0])*u[1]-(f[1]-e[1])*u[0]);
+          if(t>0.2&&t<4.6&&off<0.4&&(!best||t<best.t)) best={t,p:f};
+        });
+        // a wall straight ahead (a door beside a corner)
+        const t=segHit(e,u,3.1,q); if(t!=null&&(!best||t<best.t)) best={t,p:[e[0]+u[0]*t,e[1]+u[1]*t]};
+      });
+      if(best) out.push([e[0],e[1],best.p[0],best.p[1]]);
+    });
+  });
+  return out;
+}
+function floorGrid(fl){
+  const segs=fl.walls.children.filter(w=>w.visible).map(w=>w.userData.p);
+  const key=JSON.stringify([segs,fl.slabOff]);
+  if(fl.grid&&fl.gridKey===key) return fl.grid;
+  const c=document.createElement('canvas'); c.width=PG.W; c.height=PG.H; const ctx=c.getContext('2d');
+  const X=x=>(x-PG.x0)/PG.res, Z=z=>(z-PG.z0)/PG.res;
+  ctx.fillStyle='#fff';
+  FLOORDATA[fl.i].o.forEach((poly,k)=>{ if(fl.slabOff.includes(k)) return;
+    ctx.beginPath(); poly.forEach(([x,y],j)=>{const [a,b]=P(x,y); j?ctx.lineTo(X(a),Z(b)):ctx.moveTo(X(a),Z(b));}); ctx.closePath(); ctx.fill(); });
+  ctx.strokeStyle='#000'; ctx.lineWidth=Math.max(2.4,T/PG.res); ctx.lineCap='square';
+  segs.concat(doorSegs(segs)).forEach(([a,b,cc,d])=>{ ctx.beginPath(); ctx.moveTo(X(a),Z(b)); ctx.lineTo(X(cc),Z(d)); ctx.stroke(); });
+  const px=ctx.getImageData(0,0,PG.W,PG.H).data, g=new Uint8Array(PG.W*PG.H);
+  for(let i=0;i<g.length;i++) g[i]=px[i*4+3]>200&&px[i*4]>200?1:0;
+  fl.grid=g; fl.gridKey=key; return g;
+}
+function cellOf(x,z){ return [Math.floor((x-PG.x0)/PG.res),Math.floor((z-PG.z0)/PG.res)]; }
+function roomAt(fl,x,z){
+  const g=floorGrid(fl); let [ci,cj]=cellOf(x,z);
+  if(ci<0||cj<0||ci>=PG.W||cj>=PG.H) return null;
+  if(!g[cj*PG.W+ci]){ // clicked on a wall line: look for the nearest open cell
+    let f=null; for(let r=1;r<6&&!f;r++) for(let dj=-r;dj<=r&&!f;dj++) for(let di=-r;di<=r;di++){ const i=ci+di,j=cj+dj; if(i>=0&&j>=0&&i<PG.W&&j<PG.H&&g[j*PG.W+i]){f=[i,j];break;} }
+    if(!f) return null; [ci,cj]=f;
+  }
+  const mark=new Uint8Array(g.length), st=[cj*PG.W+ci], cells=[]; mark[st[0]]=1;
+  while(st.length){ const k=st.pop(); cells.push(k); const i=k%PG.W;
+    if(i>0&&g[k-1]&&!mark[k-1]){mark[k-1]=1;st.push(k-1);} if(i<PG.W-1&&g[k+1]&&!mark[k+1]){mark[k+1]=1;st.push(k+1);}
+    if(k>=PG.W&&g[k-PG.W]&&!mark[k-PG.W]){mark[k-PG.W]=1;st.push(k-PG.W);} if(k+PG.W<g.length&&g[k+PG.W]&&!mark[k+PG.W]){mark[k+PG.W]=1;st.push(k+PG.W);} }
+  return {mark,cells};
+}
+function paintLayer(fl){
+  if(fl.paintMesh) return fl;
+  fl.paintCanvas=document.createElement('canvas'); fl.paintCanvas.width=PG.W; fl.paintCanvas.height=PG.H;
+  fl.paintTex=new THREE.CanvasTexture(fl.paintCanvas);
+  const geo=new THREE.PlaneGeometry(PG.W*PG.res,PG.H*PG.res); geo.rotateX(-Math.PI/2);
+  fl.paintMesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({map:fl.paintTex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
+  fl.paintMesh.position.set(PG.x0+PG.W*PG.res/2,0.03,PG.z0+PG.H*PG.res/2); fl.paintMesh.receiveShadow=true; fl.paintMesh.renderOrder=1;
+  fl.group.add(fl.paintMesh); return fl;
+}
+function repaint(fl){
+  if(!fl.paint.length&&!fl.paintMesh) return;
+  paintLayer(fl);
+  const ctx=fl.paintCanvas.getContext('2d'), img=ctx.createImageData(PG.W,PG.H), d=img.data;
+  fl.paint.forEach(p=>{
+    const r=roomAt(fl,p.x,p.z); if(!r) return;
+    const c=new THREE.Color(p.c), R=Math.round(c.r*255),G=Math.round(c.g*255),B=Math.round(c.b*255);
+    r.cells.forEach(k=>{ d[k*4]=R; d[k*4+1]=G; d[k*4+2]=B; d[k*4+3]=255; });
+  });
+  ctx.putImageData(img,0,0); fl.paintTex.needsUpdate=true;
+}
+function applySlabs(fl){ fl.slabs.forEach((s,k)=>s.visible=!fl.slabOff.includes(k)); }
+let repaintTimer=null;
+function scheduleRepaint(fl){ if(!fl.paint.length) return; clearTimeout(repaintTimer); repaintTimer=setTimeout(()=>repaint(fl),120); }
+
+// palette
+const psw=document.getElementById('psw');
+[...PCOLS,['색 지우기',null]].forEach(([name,c])=>{
+  const b=document.createElement('button'); b.title=name; b.setAttribute('aria-label',name);
+  if(c) b.style.setProperty('--c',c); else { b.className='erase'; b.textContent='✕'; }
+  b.setAttribute('aria-pressed',String(c===pColor));
+  b.addEventListener('click',()=>{ pColor=c; pSlabMode=false; pSlab.setAttribute('aria-pressed','false');
+    psw.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); });
+  psw.appendChild(b);
+});
+pSlab.addEventListener('click',()=>{ pSlabMode=!pSlabMode; pSlab.setAttribute('aria-pressed',String(pSlabMode));
+  psw.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(!pSlabMode&&x.getAttribute('aria-label')===(PCOLS.find(p=>p[1]===pColor)||['색 지우기'])[0]))); });
+function pbegin(fl){ return {paint:JSON.parse(JSON.stringify(fl.paint)),slabOff:fl.slabOff.slice()}; }
+pRestore.addEventListener('click',()=>{
+  const fl=FL(); if(!fl||!fl.slabOff.length) return; const prev=pbegin(fl);
+  fl.slabOff=[]; applySlabs(fl); repaint(fl); fl.history.push({t:'paint',prev}); sync();
+});
+function paintClick(e){
+  const fl=FL(); if(!fl) return;
+  const prev=pbegin(fl);
+  if(pSlabMode){
+    toNDC(e); const hit=ray.intersectObjects(fl.slabs.filter(s=>s.visible),false)[0]; if(!hit) return;
+    fl.slabOff.push(hit.object.userData.slab); applySlabs(fl);
+  } else {
+    const g=pickGround(e); if(!g) return;
+    const r=roomAt(fl,g[0],g[1]); if(!r) return;
+    if(r.cells.length>PG.W*PG.H*0.5) return;                       // clicked outside the building
+    fl.paint=fl.paint.filter(p=>{ const [i,j]=cellOf(p.x,p.z); return !(i>=0&&j>=0&&i<PG.W&&j<PG.H&&r.mark[j*PG.W+i]); });
+    if(pColor) fl.paint.push({x:Math.round(g[0]*100)/100,z:Math.round(g[1]*100)/100,c:pColor});
+  }
+  repaint(fl); fl.history.push({t:'paint',prev}); sync();
+}
+floors.forEach(fl=>{ applySlabs(fl); repaint(fl); });
+
+// ---------- room name labels ----------
+const labelsEl=document.getElementById('labels'), labelBox=document.getElementById('labelBox'), lEdit=document.getElementById('lEdit'),
+      lName=document.getElementById('lName'), lCode=document.getElementById('lCode'), lbBox=document.getElementById('lb');
+let showLabels=store.get('maean-labels')!=='off', lsel=null, lpending=null, ldrag=null;
+lbBox.checked=showLabels;
+lbBox.addEventListener('change',()=>{showLabels=lbBox.checked; store.set('maean-labels',showLabels?'on':'off');});
+function labelsEdited(fl){ return JSON.stringify(fl.labelData)!==JSON.stringify(fl.labelOrig); }
+function renderChips(fl){
+  fl.chips.forEach(c=>c.remove()); fl.chips=[];
+  fl.labelData.forEach((l,k)=>{
+    const b=document.createElement('button'); b.type='button';
+    b.className='chip'+(l.code?' has':'')+(l.hidden?' off':'')+(fl===FL()&&lsel===k?' sel':''); b.textContent=l.name||'이름 없음'; b.hidden=true;
+    b.addEventListener('pointerdown',e=>{
+      if(tool!=='label'||e.button>0) return;
+      e.preventDefault(); selectLabel(k);
+      ldrag={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false}; b.setPointerCapture(e.pointerId); lbegin();
+    });
+    b.addEventListener('pointermove',e=>{
+      if(!ldrag||e.pointerId!==ldrag.id) return;
+      if(!ldrag.moved&&Math.hypot(e.clientX-ldrag.x,e.clientY-ldrag.y)<4) return;
+      ldrag.moved=true; const g=pickGround(e); if(!g) return;
+      const l=FL().labelData[k]; l.x=Math.round(g[0]*20)/20; l.z=Math.round(g[1]*20)/20;
+    });
+    const end=()=>{ if(!ldrag) return; ldrag=null; lcommit(); };
+    b.addEventListener('pointerup',end); b.addEventListener('pointercancel',end);
+    b.addEventListener('click',()=>{ if(tool==='view') openRoom(fl,l); });
+    labelsEl.appendChild(b); fl.chips.push(b);
+  });
+  refreshDup();
+}
+// duplicate link codes (code, or the name when the code is empty) among labels that are not hidden, across all floors
+const lDup=document.getElementById('lDup'), lDupSum=document.getElementById('lDupSum'), lHide=document.getElementById('lHide');
+const keyOf=l=>((l.code||l.name||'')+'').trim();
+function refreshDup(){
+  if(typeof lDup==='undefined') return;
+  const m=new Map();
+  floors.forEach(f=>(f.labelData||[]).forEach(l=>{ if(l.hidden) return; const k=keyOf(l); if(!k) return; if(!m.has(k)) m.set(k,[]); m.get(k).push(f.i+1); }));
+  floors.forEach(f=>(f.chips||[]).forEach((c,k)=>{ const l=f.labelData[k]; c.classList.toggle('dup',!!l&&!l.hidden&&(m.get(keyOf(l))||[]).length>1); }));
+  const dups=[...m].filter(([,v])=>v.length>1).sort((a,b)=>b[1].length-a[1].length);
+  lDupSum.hidden=!dups.length;
+  if(dups.length) lDupSum.textContent='겹치는 연결 코드: '+dups.slice(0,6).map(([k,v])=>`${k}(${v.length})`).join(', ')+(dups.length>6?` 외 ${dups.length-6}개`:'')+' · 이름을 바꾸거나 연결 코드를 따로 넣거나 감추세요.';
+  const fl=FL(), l=fl&&lsel!=null?fl.labelData[lsel]:null;
+  const same=l&&!l.hidden?(m.get(keyOf(l))||[]):[];
+  lDup.hidden=same.length<2;
+  if(same.length>=2){ const fls=[...new Set(same)].map(n=>n+'층').join(', '); lDup.textContent=`⚠ 연결 코드 "${keyOf(l)}"가 다른 이름표 ${same.length-1}개와 겹칩니다 (${fls}). 같은 소개가 뜹니다.`; }
+}
+function fillLabelPanel(){
+  const fl=FL(); lEdit.hidden=lsel==null||!fl;
+  if(lsel==null||!fl) return; const l=fl.labelData[lsel];
+  lName.value=l.name; lCode.value=l.code||''; lHide.checked=!!l.hidden; refreshDup(); lCode.placeholder=l.name?`${l.name} (이름과 같게)`:'예: 1-1반';
+}
+function selectLabel(k){
+  const fl=FL(); lsel=k;
+  if(fl) fl.chips.forEach((c,i)=>c.classList.toggle('sel',i===k));
+  fillLabelPanel();
+}
+function lbegin(){ const fl=FL(); if(fl&&lpending==null) lpending=JSON.stringify(fl.labelData); }
+function lcommit(){
+  const fl=FL(); if(!fl||lpending==null) return;
+  if(lpending!==JSON.stringify(fl.labelData)) fl.history.push({t:'labels',prev:JSON.parse(lpending)});
+  lpending=null; sync();
+}
+lName.addEventListener('input',()=>{ const fl=FL(); if(!fl||lsel==null) return; lbegin();
+  fl.labelData[lsel].name=lName.value; fl.chips[lsel].textContent=lName.value||'이름 없음'; lCode.placeholder=lName.value?`${lName.value} (이름과 같게)`:'예: 1-1반'; refreshDup(); });
+lCode.addEventListener('input',()=>{ const fl=FL(); if(!fl||lsel==null) return; lbegin();
+  fl.labelData[lsel].code=lCode.value.trim(); fl.chips[lsel].classList.toggle('has',!!lCode.value.trim()); refreshDup(); });
+lHide.addEventListener('change',()=>{ const fl=FL(); if(!fl||lsel==null) return; lbegin();
+  const l=fl.labelData[lsel]; if(lHide.checked) l.hidden=true; else delete l.hidden;
+  fl.chips[lsel].classList.toggle('off',lHide.checked); refreshDup(); lcommit(); });
+lName.addEventListener('change',lcommit); lCode.addEventListener('change',lcommit);
+[lName,lCode].forEach(el=>el.addEventListener('keydown',e=>{ if(e.key==='Enter') el.blur(); }));
+document.getElementById('lDel').addEventListener('click',()=>{
+  const fl=FL(); if(!fl||lsel==null) return; lbegin(); fl.labelData.splice(lsel,1); lsel=null; renderChips(fl); fillLabelPanel(); lcommit();
+});
+function addLabelAt(g){
+  const fl=FL(); lbegin();
+  fl.labelData.push({id:'u'+Date.now().toString(36),name:'새 이름',x:Math.round(g[0]*20)/20,z:Math.round(g[1]*20)/20,code:''});
+  renderChips(fl); selectLabel(fl.labelData.length-1); lcommit();
+  lName.focus(); lName.select();
+}
+function resetLabels(fl){ fl.labelData=JSON.parse(JSON.stringify(fl.labelOrig)); lsel=null; renderChips(fl); fillLabelPanel(); }
+
+// room click preview: the web-app version shows the lesson introduction here
+const roomModal=document.getElementById('roomModal'), mTag=document.getElementById('mTag'), mTitle=document.getElementById('mTitle'), mBody=document.getElementById('mBody');
+let mLast=null;
+function openRoom(fl,l){
+  const key=l.code||l.name;
+  mTag.textContent=`${fl.i+1}층 · 연결 코드 ${key}`;
+  mTitle.textContent=l.name;
+  mBody.textContent=`웹 앱에서는 연결 코드 "${key}"에 해당하는 수업 소개가 이 창에 뜹니다.`+(l.code?'':' 연결 코드를 따로 넣지 않아 실 이름을 그대로 씁니다.')+' 소개 자료는 나중에 웹 앱의 ROOM_INFO에 추가하면 됩니다.';
+  mLast=document.activeElement; roomModal.hidden=false; document.getElementById('mClose').focus();
+}
+function closeRoom(){ roomModal.hidden=true; if(mLast) mLast.focus(); }
+document.getElementById('mClose').addEventListener('click',closeRoom);
+document.getElementById('mOk').addEventListener('click',closeRoom);
+roomModal.addEventListener('click',e=>{ if(e.target===roomModal) closeRoom(); });
+addEventListener('keydown',e=>{ if(e.key==='Escape'&&!roomModal.hidden) closeRoom(); });
+
+floors.forEach(renderChips);
+const ltmp=new THREE.Vector3();
+function placeChips(){
+  const W=innerWidth,Hh=innerHeight;
+  floors.forEach(fl=>{
+    const on=showLabels&&cur===fl.i;
+    fl.chips.forEach((c,k)=>{
+      const l=fl.labelData[k];
+      if(!on||(l.hidden&&tool!=='label')){ if(!c.hidden) c.hidden=true; return; }
+      ltmp.set(l.x,0.3,l.z).project(camera);
+      const vis=ltmp.z<1&&Math.abs(ltmp.x)<1.1&&Math.abs(ltmp.y)<1.1;
+      c.hidden=!vis; if(vis) c.style.transform=`translate(${(ltmp.x+1)/2*W}px,${(1-ltmp.y)/2*Hh}px) translate(-50%,-50%)`;
+    });
+  });
+}
+// draw the visible labels onto an exported PNG
+function drawChips(ctx,Wc,Hc,scale){
+  const fl=FL(); if(!fl||!showLabels) return;
+  const cs=getComputedStyle(document.documentElement);
+  ctx.font=`600 ${12.5*scale}px ${cs.getPropertyValue('--ui')}`; ctx.textBaseline='middle'; ctx.textAlign='center';
+  fl.labelData.forEach(l=>{
+    if(l.hidden) return;
+    ltmp.set(l.x,0.3,l.z).project(camera); if(ltmp.z>=1||Math.abs(ltmp.x)>1||Math.abs(ltmp.y)>1) return;
+    const x=(ltmp.x+1)/2*Wc, y=(1-ltmp.y)/2*Hc, tw=ctx.measureText(l.name).width, pw=tw+18*scale, ph=24*scale;
+    ctx.fillStyle=cs.getPropertyValue('--panel').trim(); ctx.strokeStyle=cs.getPropertyValue('--line').trim(); ctx.lineWidth=scale;
+    ctx.beginPath(); ctx.roundRect(x-pw/2,y-ph/2,pw,ph,ph/2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=cs.getPropertyValue('--fg').trim(); ctx.fillText(l.name,x,y+scale*0.5);
+  });
+}
+
+// ---------- web-app export: a view-only page with everything baked in ----------
+const VIEWER_TPL="<!doctype html>\n<html lang=\"ko\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\">\n<title>매안초 3D 학교 안내<\/title>\n<!--\n  매안초 3D 학교 안내 (보기 전용)\n  ─────────────────────────────────────────────\n  · 이 파일 하나로 동작합니다. three.js만 CDN에서 불러옵니다.\n  · 건물 모양, 계단, 실 이름은 아래 MODEL 에 들어 있습니다. (편집 페이지에서 내보낸 값)\n  · 방 이름을 누르면 ROOM_INFO[연결 코드] 내용을 소개 창으로 보여 줍니다. 연결 코드가 비어 있으면 실 이름을 코드로 씁니다.\n      - 연결 코드는 편집 페이지의 '이름' 도구에서 이름표마다 정할 수 있습니다. 한글도 됩니다. (예: \"1-1반\", \"도서관\")\n      - 각 이름표의 실제 연결 코드는 room.key 입니다. (= 연결 코드, 없으면 실 이름)\n      - 코드가 없거나 ROOM_INFO 에 내용이 없으면 \"준비 중\" 안내가 뜹니다.\n  · 다른 화면과 연결하려면:\n      - window.onRoomClick = room => { ... ; return true }  // true 를 돌려주면 기본 소개 창을 띄우지 않음\n      - iframe 안에 넣었다면 부모 창으로 postMessage({type:'maean3d:room', room}) 가 전달됩니다.\n      - 주소 끝에 #f1 ~ #f5, #all 을 붙이면 그 층으로 바로 열립니다.\n-->\n<style>\n:root{\n  --bg:#eef2f1; --panel:#ffffff; --fg:#1d2a2c; --muted:#66767a; --line:#d8e1df;\n  --accent:#1c6b70; --accent-ink:#ffffff; --tint:#e7f1ef; --warm:#fdf0e6;\n  --ui:\"Noto Sans KR\",system-ui,-apple-system,\"Apple SD Gothic Neo\",\"Malgun Gothic\",sans-serif;\n}\n*{box-sizing:border-box}\nhtml,body{height:100%;margin:0}\nbody{background:var(--bg);color:var(--fg);font-family:var(--ui);font-size:14px;overflow:hidden}\n[hidden]{display:none!important}\n#stage{position:fixed;inset:0}\n#stage canvas{display:block;touch-action:none}\n#labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}\n.chip{position:absolute;left:0;top:0;transform:translate(-50%,-50%);white-space:nowrap;pointer-events:auto;cursor:pointer;\n  font:600 12.5px/1 var(--ui);color:var(--fg);background:rgb(255 255 255/.92);border:1px solid var(--line);\n  padding:6px 10px;border-radius:999px;box-shadow:0 2px 6px rgb(0 0 0/.08);transition:background .15s,color .15s}\n.chip.has{border-color:var(--accent)}\n.chip.has::before{content:\"\";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:1px}\n.chip:hover,.chip:focus-visible{background:var(--accent);color:var(--accent-ink);outline:none}\n.chip:hover::before,.chip:focus-visible::before{background:var(--accent-ink)}\n.bar{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));\n  display:flex;flex-direction:column;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:14px;\n  padding:10px;box-shadow:0 8px 24px rgb(0 0 0/.08);max-width:calc(100vw - 24px)}\n.seg{display:flex;flex-wrap:wrap;gap:4px}\n.seg button{border:0;background:var(--tint);color:var(--fg);font:500 13px var(--ui);padding:7px 12px;border-radius:999px;cursor:pointer}\n.seg button[aria-pressed=\"true\"]{background:var(--accent);color:var(--accent-ink);font-weight:700}\n.seg.small button{font-size:12px;padding:6px 10px;background:transparent;border:1px solid var(--line)}\n.seg.small button[aria-pressed=\"true\"]{background:var(--fg);border-color:var(--fg)}\n.hint{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);\n  background:rgb(29 42 44/.78);color:#fff;font-size:12.5px;padding:7px 14px;border-radius:999px;pointer-events:none;white-space:nowrap;transition:opacity .4s}\nbutton:focus-visible{outline:2px solid var(--accent);outline-offset:2px}\n/* room modal */\n.mbg{position:fixed;inset:0;background:rgb(20 40 44/.45);display:grid;place-items:center;padding:16px;z-index:20}\n.modal{background:var(--panel);border-radius:18px;width:min(560px,100%);max-height:calc(100% - 32px);overflow:auto;\n  padding:28px 30px 26px;box-shadow:0 20px 60px rgb(0 0 0/.25);display:flex;flex-direction:column;gap:14px}\n.mhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}\n.mtag{display:inline-block;background:var(--tint);color:var(--accent);font-weight:700;font-size:12.5px;padding:5px 10px;border-radius:6px}\n.mclose{border:0;background:#f0f3f2;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;color:var(--fg);flex:none}\n.modal h2{margin:0;font-size:24px;line-height:1.3;text-wrap:balance}\n.rows{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin:0;font-size:14px}\n.rows dt{color:var(--muted)}\n.rows dd{margin:0}\n.note{background:var(--tint);border-left:4px solid var(--accent);border-radius:8px;padding:12px 16px;font-size:14px;line-height:1.6}\n.note b{display:block;color:var(--accent);font-size:13px;margin-bottom:4px}\n.empty{color:var(--muted);line-height:1.6;margin:0}\n.mfoot{display:flex;gap:10px;margin-top:4px}\n.mfoot a,.mfoot button{flex:1;text-align:center;text-decoration:none;font:700 14.5px var(--ui);padding:13px;border-radius:10px;cursor:pointer}\n.mfoot a{background:var(--accent);color:var(--accent-ink);flex:3}\n.mfoot button{background:#fff;border:1px solid var(--line);color:var(--accent)}\n@media (max-width:520px){.chip{font-size:11px;padding:4px 8px}.modal{padding:22px 20px}.modal h2{font-size:21px}.hint{font-size:11.5px}}\n<\/style>\n<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap\">\n<\/head>\n<body>\n<div id=\"stage\"><\/div>\n<div id=\"labels\"><\/div>\n<div class=\"bar\">\n  <div class=\"seg\" id=\"floorSel\" role=\"group\" aria-label=\"층 선택\"><\/div>\n  <div class=\"seg small\" role=\"group\" aria-label=\"보기 방식\">\n    <button id=\"v3d\" aria-pressed=\"true\">입체<\/button>\n    <button id=\"vtop\" aria-pressed=\"false\">위에서<\/button>\n    <button id=\"lbBtn\" aria-pressed=\"true\">실 이름<\/button>\n  <\/div>\n<\/div>\n<div class=\"hint\" id=\"hint\">드래그해서 돌려 보고, 실 이름을 누르면 소개를 볼 수 있어요<\/div>\n\n<div class=\"mbg\" id=\"roomModal\" hidden>\n  <div class=\"modal\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"mTitle\">\n    <div class=\"mhead\"><span class=\"mtag\" id=\"mTag\"><\/span><button class=\"mclose\" id=\"mClose\" aria-label=\"닫기\">✕<\/button><\/div>\n    <h2 id=\"mTitle\"><\/h2>\n    <div id=\"mBody\"><\/div>\n    <div class=\"mfoot\" id=\"mFoot\"><\/div>\n  <\/div>\n<\/div>\n\n<script src=\"https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js\"><\/script>\n<script src=\"https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js\"><\/script>\n<script>\n// ===== 건물 데이터 (편집 페이지에서 내보낸 값) =====\nconst MODEL = /*__MODEL__*/null;\n\n// ===== 방 소개 데이터: 연결 코드(비어 있으면 실 이름)별로 채워 넣으세요 =====\n// 예시:\n// \"1-1\": {\n//   tag: \"1학년 1반 · 바른 생활\",\n//   title: \"얼굴이 안 보여도 친구예요\",\n//   rows: [[\"단원\",\"상상\"],[\"차시 주제\",\"행복을 주는 말을 해요\"]],\n//   note: { title: \"참관 포인트\", text: \"교사의 동기 유발과 정서적 지원 속에서 …\" },\n//   link: { text: \"수업안 보기 · 참관록 쓰기 ↗\", href: \"https://…\" }\n// }\nconst ROOM_INFO = {};\n\n// ===== 아래는 화면을 그리는 코드 =====\nconst S_T=0.24, SLAB=0.2, DIRS=[[1,0],[0,1],[-1,0],[0,-1]];\nconst H=MODEL.wallHeight||3;\nconst stage=document.getElementById('stage'), labelsEl=document.getElementById('labels');\nconst renderer=new THREE.WebGLRenderer({antialias:true});\nrenderer.setPixelRatio(Math.min(devicePixelRatio,2));\nrenderer.shadowMap.enabled=!!MODEL.shadows; renderer.shadowMap.type=THREE.PCFSoftShadowMap;\nstage.appendChild(renderer.domElement);\nconst scene=new THREE.Scene();\nconst bg=MODEL.colors&&MODEL.colors.bg||'#e4e8e3';\nscene.background=new THREE.Color(bg); scene.fog=new THREE.Fog(bg,160,380);\nconst camera=new THREE.PerspectiveCamera(40,1,0.5,1000);\nconst controls=new THREE.OrbitControls(camera,renderer.domElement);\ncontrols.enableDamping=true; controls.maxPolarAngle=Math.PI/2-0.03; controls.minDistance=8; controls.maxDistance=260;\nscene.add(new THREE.HemisphereLight(0xffffff,0x8a948f,0.68));\nconst sun=new THREE.DirectionalLight(0xffffff,0.55);\nsun.position.set(-40,90,-30); sun.castShadow=true; sun.shadow.mapSize.set(2048,2048);\nObject.assign(sun.shadow.camera,{left:-75,right:75,top:60,bottom:-60,near:1,far:260}); sun.shadow.bias=-0.0005; scene.add(sun);\nconst mGround=new THREE.MeshLambertMaterial({color:MODEL.colors&&MODEL.colors.bg?new THREE.Color(MODEL.colors.bg).multiplyScalar(0.93):'#d7ddd6'});\nconst mFloor=new THREE.MeshLambertMaterial({color:MODEL.colors&&MODEL.colors.floor||'#f3f4f1'});\nconst mWall=new THREE.MeshStandardMaterial({color:'#fdfdfb',roughness:.9}), mStep=new THREE.MeshLambertMaterial({color:'#c9cfc8'});\nconst edgeMat=new THREE.LineBasicMaterial({color:'#23282a',transparent:true,opacity:.18});\nconst ground=new THREE.Mesh(new THREE.PlaneGeometry(500,500),mGround);\nground.rotation.x=-Math.PI/2; ground.position.y=-0.12; ground.receiveShadow=true; scene.add(ground);\n\nconst floors=MODEL.floors.map((f,i)=>{\n  const g=new THREE.Group(); scene.add(g);\n  f.outline.forEach(poly=>{\n    const shape=new THREE.Shape(poly.map(([x,z])=>new THREE.Vector2(x,-z)));\n    const slab=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:SLAB,bevelEnabled:false}),mFloor);\n    slab.rotation.x=-Math.PI/2; slab.position.y=-SLAB+0.02; slab.receiveShadow=slab.castShadow=true; g.add(slab);\n  });\n  if(f.paintImg){\n    const pi=f.paintImg, geo=new THREE.PlaneGeometry(pi.w,pi.h); geo.rotateX(-Math.PI/2);\n    const tex=new THREE.TextureLoader().load(pi.src);\n    const pm=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({map:tex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));\n    pm.position.set(pi.x0+pi.w/2,0.03,pi.z0+pi.h/2); pm.receiveShadow=true; pm.renderOrder=1; g.add(pm);\n  }\n  f.walls.forEach(([a,b,c,d])=>{\n    const len=Math.hypot(c-a,d-b)+S_T, geo=new THREE.BoxGeometry(len,H,S_T); geo.translate(0,H/2,0);\n    const m=new THREE.Mesh(geo,mWall); m.position.set((a+c)/2,0,(b+d)/2); m.rotation.y=-Math.atan2(d-b,c-a);\n    m.castShadow=m.receiveShadow=true; m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo),edgeMat)); g.add(m);\n  });\n  f.stairs.forEach(s=>{\n    const [ux,uz]=DIRS[s.r], ls=s.l/s.n;\n    for(let k=0;k<s.n;k++){\n      const h=s.h*(k+1)/s.n, off=-s.l/2+ls*(k+.5);\n      const geo=ux?new THREE.BoxGeometry(ls*0.98,h,s.w):new THREE.BoxGeometry(s.w,h,ls*0.98);\n      const m=new THREE.Mesh(geo,mStep); m.position.set(s.cx+ux*off,h/2,s.cz+uz*off); m.castShadow=m.receiveShadow=true; g.add(m);\n    }\n  });\n  const chips=(f.labels||[]).filter(l=>!l.hidden).map(l=>{\n    const b=document.createElement('button'); b.type='button'; b.className='chip'+(ROOM_INFO[l.code||l.name]?' has':''); b.textContent=l.name;\n    b.addEventListener('click',()=>roomClick({...l,key:l.code||l.name,floor:i+1}));\n    labelsEl.appendChild(b); return {el:b,v:new THREE.Vector3(l.x,0.3,l.z)};\n  });\n  return {g,chips};\n});\n\n// floors & views\nlet cur=0, showLabels=true, view='v3d', anim=null;\nconst LEVEL=H+SLAB+2;\nconst sel=document.getElementById('floorSel');\nconst opts=MODEL.floors.map((f,i)=>[String(i),f.name]).concat([['all','전체']]);\nopts.forEach(([v,t])=>{const b=document.createElement('button'); b.dataset.f=v; b.textContent=t; b.addEventListener('click',()=>pick(v==='all'?'all':+v)); sel.appendChild(b);});\nfunction viewFor(id){\n  const top=cur==='all'?LEVEL*(floors.length-1)+H:0, mid=top*0.45;\n  if(innerWidth<innerHeight){ // phone held upright: turn the long side of the building to run up the screen\n    return id==='vtop'?[[-0.01,82+top,0],[0,top,0]]:[[-58-top*0.6,58+top,4],[2,mid,0]];\n  }\n  if(cur==='all') return id==='vtop'?[[0,110+top,0.01],[0,top,0]]:[[-34,78+top,100+top*0.5],[0,mid,2]];\n  return id==='vtop'?[[0,95,0.01],[0,0,0]]:[[-20,62,68],[0,0,2]];\n}\nfunction go(id,instant){\n  view=id; ['v3d','vtop'].forEach(k=>document.getElementById(k).setAttribute('aria-pressed',String(k===id)));\n  const [p,t]=viewFor(id), tt=new THREE.Vector3(...t), to=new THREE.Vector3(...p);\n  if(instant||matchMedia('(prefers-reduced-motion: reduce)').matches){camera.position.copy(to);controls.target.copy(tt);return}\n  anim={fp:camera.position.clone(),ft:controls.target.clone(),to,tt,t0:performance.now()};\n}\nfunction pick(v,instant){\n  cur=v;\n  sel.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.f===String(v))));\n  floors.forEach((f,i)=>{ f.g.visible=v==='all'||v===i; f.g.position.y=v==='all'?i*LEVEL:0; });\n  try{history.replaceState(null,'',v==='all'?'#all':'#f'+(v+1))}catch(e){}\n  go(view,instant);\n}\ndocument.getElementById('v3d').addEventListener('click',()=>go('v3d'));\ndocument.getElementById('vtop').addEventListener('click',()=>go('vtop'));\nconst lbBtn=document.getElementById('lbBtn');\nlbBtn.addEventListener('click',()=>{showLabels=!showLabels; lbBtn.setAttribute('aria-pressed',String(showLabels));});\nfunction fromHash(){const h=location.hash.slice(1); if(h==='all') return 'all'; const m=/^f(\\d)$/.exec(h); return m&&+m[1]<=floors.length?+m[1]-1:0;}\naddEventListener('hashchange',()=>{const v=fromHash(); if(v!==cur) pick(v);});\n\n// room click → info modal (or your own handler)\nconst modal=document.getElementById('roomModal'), mTag=document.getElementById('mTag'), mTitle=document.getElementById('mTitle'),\n      mBody=document.getElementById('mBody'), mFoot=document.getElementById('mFoot');\nconst esc=s=>String(s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));\nlet lastFocus=null;\nfunction roomClick(room){\n  try{ if(window.parent!==window) window.parent.postMessage({type:'maean3d:room',room},'*'); }catch(e){}\n  if(typeof window.onRoomClick==='function' && window.onRoomClick(room)===true) return;\n  const info=ROOM_INFO[room.key];\n  mTag.textContent=info&&info.tag||`${room.floor}층`;\n  mTitle.textContent=info&&info.title||room.name;\n  let body='';\n  if(info){\n    if(info.rows&&info.rows.length) body+='<dl class=\"rows\">'+info.rows.map(([k,v])=>`<dt>${esc(k)}<\/dt><dd>${esc(v)}<\/dd>`).join('')+'<\/dl>';\n    if(info.note) body+=`<div class=\"note\"><b>${esc(info.note.title||'')}<\/b>${esc(info.note.text||'')}<\/div>`;\n  } else body=`<p class=\"empty\">${esc(room.name)} 소개는 준비 중입니다.<\/p>`;\n  mBody.innerHTML=body;\n  mFoot.innerHTML=(info&&info.link?`<a href=\"${esc(info.link.href)}\" target=\"_blank\" rel=\"noopener\">${esc(info.link.text||'자세히 보기 ↗')}<\/a>`:'')+'<button type=\"button\" id=\"mOk\">닫기<\/button>';\n  document.getElementById('mOk').addEventListener('click',closeModal);\n  lastFocus=document.activeElement; modal.hidden=false; document.getElementById('mClose').focus();\n}\nfunction closeModal(){ modal.hidden=true; if(lastFocus) lastFocus.focus(); }\ndocument.getElementById('mClose').addEventListener('click',closeModal);\nmodal.addEventListener('click',e=>{ if(e.target===modal) closeModal(); });\naddEventListener('keydown',e=>{ if(e.key==='Escape'&&!modal.hidden) closeModal(); });\n\n// hint fades after first interaction\nconst hint=document.getElementById('hint');\nrenderer.domElement.addEventListener('pointerdown',()=>{hint.style.opacity='0';},{once:true});\n\nfunction fit(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h); camera.aspect=w/h; camera.fov=w/h<1?62:40; camera.updateProjectionMatrix(); }\naddEventListener('resize',fit); fit(); pick(fromHash(),true);\n\nconst tmp=new THREE.Vector3();\nrenderer.setAnimationLoop(now=>{\n  if(anim){const k=Math.min(1,(now-anim.t0)/700),e=1-Math.pow(1-k,3);\n    camera.position.lerpVectors(anim.fp,anim.to,e); controls.target.lerpVectors(anim.ft,anim.tt,e); if(k===1)anim=null;}\n  controls.update(); renderer.render(scene,camera);\n  const W=innerWidth,Hh=innerHeight;\n  floors.forEach((f,i)=>{\n    const on=showLabels&&cur===i;\n    f.chips.forEach(c=>{\n      if(!on){ if(!c.el.hidden) c.el.hidden=true; return; }\n      tmp.copy(c.v).project(camera);\n      const vis=tmp.z<1&&Math.abs(tmp.x)<1.1&&Math.abs(tmp.y)<1.1;\n      c.el.hidden=!vis; if(vis) c.el.style.transform=`translate(${(tmp.x+1)/2*W}px,${(1-tmp.y)/2*Hh}px) translate(-50%,-50%)`;\n    });\n  });\n});\n<\/script>\n<\/body>\n<\/html>\n";
+function exportModel(){
+  const rd=v=>Math.round(v*100)/100;
+  return {version:1,wallHeight:H,shadows:shadowsOn,colors:{bg:bgPick,floor:floorPick},
+    floors:floors.map((f,i)=>({name:(i+1)+'층',
+      outline:FLOORDATA[i].o.filter((poly,k)=>!f.slabOff.includes(k)).map(poly=>poly.map(([x,y])=>P(x,y).map(rd))),
+      paint:f.paint, slabOff:f.slabOff,
+      paintImg:f.paint.length&&f.paintCanvas?{src:f.paintCanvas.toDataURL('image/png'),x0:PG.x0,z0:PG.z0,w:PG.W*PG.res,h:PG.H*PG.res}:null,
+      walls:f.walls.children.filter(w=>w.visible).map(w=>w.userData.p.map(rd)),
+      stairs:f.stairData.map(s=>({...s,cx:rd(s.cx),cz:rd(s.cz),w:rd(s.w),l:rd(s.l)})),
+      labels:f.labelData.map(l=>({id:l.id,name:l.name,x:rd(l.x),z:rd(l.z),code:l.code||'',...(l.hidden?{hidden:true}:{})}))}))};
+}
+
+// ---------- shared storage: every editor sees the same walls, stairs and labels ----------
+// One document per floor at floors/f1 … floors/f5 in this artifact's own database.
+const shareEl=document.getElementById('share'), shareMsg=document.getElementById('shareMsg'), upBtn=document.getElementById('upload');
+var shared={db:null, canWrite:true, docs:{}, last:{}, busy:{}, dirty:{}, ready:false};
+function floorState(fl){
+  return {hidden:fl.walls.children.filter(w=>!w.visible).map(w=>w.userData.id),
+    added:fl.added.map(m=>({id:m.userData.id,p:m.userData.p})),
+    moved:movedOf(fl), paint:fl.paint, slabOff:fl.slabOff,
+    stairs:stairsEdited(fl)?fl.stairData:null, labels:labelsEdited(fl)?fl.labelData:null};
+}
+function isEdited(st){ return st.hidden.length||st.added.length||Object.keys(st.moved||{}).length||(st.paint||[]).length||(st.slabOff||[]).length||st.stairs||st.labels; }
+function applyState(fl,st){
+  if(cur===fl.i){ cancelDraw(); setHover(null); setSel(null); selectLabel(null); }
+  if(wsel&&fl.walls.children.includes(wsel)) selectWall(null);
+  fl.walls.children.forEach(w=>{ if(w.userData.p0) updateWall(w,w.userData.p0); });
+  fl.added.slice().forEach(m=>removeAdded(fl,m)); fl.walls.children.forEach(w=>w.visible=true);
+  (st.added||[]).forEach(a=>addWall(fl,a.p,a.id)); applyMoved(fl,st.moved);
+  const hid=new Set(st.hidden||[]); fl.walls.children.forEach(w=>{if(hid.has(w.userData.id)) w.visible=false});
+  fl.stairData=Array.isArray(st.stairs)?JSON.parse(JSON.stringify(st.stairs)):JSON.parse(JSON.stringify(fl.stairOrig));
+  fl.labelData=Array.isArray(st.labels)?JSON.parse(JSON.stringify(st.labels)):JSON.parse(JSON.stringify(fl.labelOrig));
+  fl.paint=Array.isArray(st.paint)?JSON.parse(JSON.stringify(st.paint)):[]; fl.slabOff=Array.isArray(st.slabOff)?st.slabOff.slice():[]; applySlabs(fl); repaint(fl);
+  buildStairs(fl); applyShadows(); renderChips(fl);
+  fl.history=[];
+}
+function setShareMsg(t,kind){ shareMsg.textContent=t; shareEl.dataset.kind=kind||''; }
+function pendingUploads(){
+  return floors.filter(fl=>!shared.docs[fl.i] && isEdited(floorState(fl)));
+}
+function refreshUpload(){
+  const p=shared.db&&shared.canWrite?pendingUploads():[];
+  upBtn.hidden=!p.length;
+  if(p.length) upBtn.textContent=`이 브라우저의 편집 내용 공용으로 올리기 (${p.map(f=>f.i+1+'층').join(', ')})`;
+}
+async function pushFloor(fl){
+  if(!shared.db||!shared.canWrite||!shared.ready) return;
+  // a floor that only exists in this browser waits for the upload button
+  if(!shared.docs[fl.i]&&shared.last[fl.i]===undefined) { refreshUpload(); return; }
+  const body=floorState(fl), js=JSON.stringify(body);
+  if(js===shared.last[fl.i]) return;
+  if(shared.busy[fl.i]){ shared.dirty[fl.i]=true; return; }
+  shared.busy[fl.i]=true; setShareMsg('저장하는 중…','busy');
+  try{
+    await shared.db.doc('floors/f'+(fl.i+1)).set({...body,updatedAt:Date.now()});
+    shared.last[fl.i]=js; setShareMsg('공용 저장소에 저장됨 · 편집 권한이 있는 사람 모두 같은 내용을 봅니다','ok');
+  }catch(e){
+    if(e&&e.code==='invalid_argument'){ shared.canWrite=false; lockEditing(); }
+    else setShareMsg('저장하지 못했습니다. 잠시 뒤 다시 고치면 다시 저장합니다.','err');
+  }
+  shared.busy[fl.i]=false;
+  if(shared.dirty[fl.i]){ shared.dirty[fl.i]=false; pushFloor(fl); }
+}
+function lockEditing(){
+  setShareMsg('보기 권한으로 열려 있어 편집할 수 없습니다. 편집하려면 소유자에게 편집 권한을 받으세요.','err');
+  if(tool!=='view') setTool('view');
+  toolBtns.forEach(b=>{ if(b.dataset.t!=='view') b.disabled=true; });
+  undoB.disabled=resetB.disabled=true; upBtn.hidden=true;
+}
+upBtn.addEventListener('click',async()=>{
+  const list=pendingUploads(); if(!list.length) return;
+  upBtn.disabled=true; setShareMsg('올리는 중…','busy');
+  for(const fl of list){ shared.last[fl.i]=null; await pushFloor(fl); }
+  upBtn.disabled=false; refreshUpload();
+});
+(async()=>{
+  const [db,user]=await Promise.all([window.claude?.use?.('db'),window.claude?.use?.('user')]);
+  if(!db){ setShareMsg('이 화면에서는 공용 저장소를 쓸 수 없어 이 브라우저에만 저장됩니다.',''); return; }
+  shared.db=db;
+  const w=user?await user.can('data.write'):null;
+  if(w===false){ shared.canWrite=false; }
+  setShareMsg('공용 저장소에 연결하는 중…','busy');
+  db.collection('floors').onSnapshot(snap=>{
+    snap.docChanges().forEach(ch=>{
+      const m=/^f(\d)$/.exec(ch.doc.id); if(!m) return; const i=+m[1]-1, fl=floors[i]; if(!fl) return;
+      if(ch.type==='removed'){ delete shared.docs[i]; return; }
+      const d=ch.doc.data(); shared.docs[i]=true;
+      const st={hidden:d.hidden||[],added:d.added||[],moved:d.moved||{},paint:d.paint||[],slabOff:d.slabOff||[],stairs:d.stairs||null,labels:d.labels||null}, js=JSON.stringify(st);
+      if(js===JSON.stringify(floorState(fl))){ shared.last[i]=js; return; }   // already showing it (our own write)
+      if(shared.busy[i]||shared.dirty[i]) return;                              // our newer edit is on its way
+      shared.last[i]=js; applyState(fl,st);
+    });
+    if(!shared.ready){
+      shared.ready=true;
+      // floors nobody has saved yet: shared state is the original plan unless this browser uploads its edits
+      floors.forEach(fl=>{ if(!shared.docs[fl.i]&&!isEdited(floorState(fl))) shared.last[fl.i]=JSON.stringify(floorState(fl)); });
+      if(!shared.canWrite) lockEditing();
+      else if(!Object.keys(shared.docs).length&&!pendingUploads().length) setShareMsg('공용 저장소에 연결됨 · 아직 저장된 편집은 없습니다. 이제부터 고치는 내용이 자동으로 저장되고 다른 편집자에게도 보입니다','ok');
+      else setShareMsg('공용 저장소에 연결됨 · 고친 내용이 바로 저장되고 다른 편집자에게도 보입니다','ok');
+    }
+    sync(true); refreshUpload();
+  },err=>{
+    setShareMsg(err&&err.code==='revoked'?'공용 저장소 연결이 끊겼습니다. 페이지를 새로 고쳐 주세요.':'공용 저장소에 연결하지 못해 이 브라우저에만 저장됩니다.','err');
+    shared.db=null; refreshUpload();
+  });
+})();
+
+// ---------- load a saved file (web-app viewer .html or model .json) back into the editor ----------
+const impFile=document.getElementById('impFile'), impBtn=document.getElementById('impBtn'), impAsk=document.getElementById('impAsk'),
+      impMsg=document.getElementById('impMsg'), impGo=document.getElementById('impGo'), impNo=document.getElementById('impNo');
+let impModel=null;
+impBtn.addEventListener('click',()=>impFile.click());
+function parseModel(text){
+  let m=null;
+  const t=text.trim();
+  if(t.startsWith('{')) m=JSON.parse(t);
+  else { const r=/const MODEL = (\{.*?\});\n/s.exec(text); if(r) m=JSON.parse(r[1]); }
+  if(!m||!Array.isArray(m.floors)||!m.floors.length) throw new Error('model');
+  return m;
+}
+impFile.addEventListener('change',async()=>{
+  const f=impFile.files[0]; impFile.value=''; if(!f) return;
+  try{
+    impModel=parseModel(await f.text());
+    impMsg.textContent=`"${f.name}"의 ${impModel.floors.length}개 층 내용으로 지금 모든 층의 벽·계단·이름표를 바꿉니다. 되돌리기로 취소할 수 없습니다.`;
+    impAsk.hidden=false;
+  }catch(e){
+    impModel=null; impAsk.hidden=true;
+    setShareMsg('불러올 수 없는 파일입니다. "웹 앱용 파일 받기"로 받은 .html 파일을 골라 주세요.','err');
+  }
+});
+impNo.addEventListener('click',()=>{ impModel=null; impAsk.hidden=true; });
+impGo.addEventListener('click',()=>{
+  if(!impModel) return; const m=impModel; impModel=null; impAsk.hidden=true;
+  const rd=v=>Math.round(v*100)/100, key=p=>p.map(rd).join(',');
+  floors.forEach((fl,i)=>{
+    const mf=m.floors[i]; if(!mf) return;
+    // walls: originals that are still there stay, missing ones are hidden, the rest become added walls
+    const orig=new Map(); fl.walls.children.forEach(w=>{ if(w.userData.p0) orig.set(key(w.userData.p0),w.userData.id); });
+    const seen=new Set(), added=[];
+    (mf.walls||[]).forEach((p,k)=>{ const id=orig.get(key(p)); if(id) seen.add(id); else added.push({id:'i'+Date.now().toString(36)+k,p}); });
+    const hidden=[...orig.values()].filter(id=>!seen.has(id));
+    const normS=a=>JSON.stringify(a.map(s=>({...s,cx:rd(s.cx),cz:rd(s.cz),w:rd(s.w),l:rd(s.l)})));
+    const normL=a=>JSON.stringify(a.map(l=>({id:l.id,name:l.name,x:rd(l.x),z:rd(l.z),code:l.code||'',h:!!l.hidden})));
+    const stairs=Array.isArray(mf.stairs)&&normS(mf.stairs)!==normS(fl.stairOrig)?mf.stairs:null;
+    const labels=Array.isArray(mf.labels)&&normL(mf.labels)!==normL(fl.labelOrig)?mf.labels:null;
+    applyState(fl,{hidden,added,moved:{},paint:Array.isArray(mf.paint)?mf.paint:[],slabOff:Array.isArray(mf.slabOff)?mf.slabOff:[],stairs,labels});
+    save(fl);
+    if(shared&&shared.db&&shared.canWrite){ shared.last[i]=null; pushFloor(fl); }
+  });
+  // display settings saved in the file
+  if(typeof m.wallHeight==='number'){ const h=document.getElementById('h'); h.value=m.wallHeight; h.dispatchEvent(new Event('input')); }
+  if(typeof m.shadows==='boolean'&&m.shadows!==shadowsOn){ shBox.checked=m.shadows; shBox.dispatchEvent(new Event('change')); }
+  if(m.colors){
+    const pick=(boxId,list,val)=>{ const k=list.findIndex(p=>p[1]===(val||null)); if(k>=0) document.getElementById(boxId).children[k].click(); };
+    pick('sw',PASTELS,m.colors.bg); pick('fsw',FLOORCOLS,m.colors.floor);
+  }
+  sync(); refreshUpload();
+  setShareMsg('파일 내용을 불러왔습니다.'+(shared&&shared.db&&shared.canWrite?' 공용 저장소에도 저장합니다.':''),'ok');
+});
+
+// ---------- start ----------
+function fromHash(){
+  const h=location.hash.slice(1);
+  if(h==='all') return 'all';
+  const m=/^f([1-5])$/.exec(h); return m?+m[1]-1:0;
+}
+selectFloor(fromHash(),true); go('v3d',true);
+addEventListener('hashchange',()=>{const v=fromHash(); if(v!==cur) selectFloor(v);});
+
+// ---------- PNG export: re-render the current view at ~3000px wide ----------
+(async()=>{
+  const downloads=window.claude
+    ? await window.claude.use('downloads')
+    : {save:async({filename,data})=>{
+        const blob=data instanceof Blob?data:new Blob([data],{type:/\.html?$/.test(filename)?'text/html;charset=utf-8':'application/octet-stream'});
+        const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); return {status:'saved'}; }};
+  if(!downloads) return;
+  const box=document.getElementById('saveBox'), btn=document.getElementById('dl'), msg=document.getElementById('msg');
+  box.hidden=false;
+  btn.addEventListener('click',async()=>{
+    btn.disabled=true; msg.textContent='이미지 만드는 중…'; setHover(null); cancelDraw();
+    const selVis=selG?selG.visible:false; if(selG) selG.visible=false;
+    const ws=wsel; if(ws) ws.material=mWall; handles.forEach(h=>h.visible=false);
+    const transparent=document.getElementById('tp').checked;
+    const w=innerWidth,h=innerHeight,pr=renderer.getPixelRatio();
+    const scale=Math.max(1,3000/w);
+    const bg=scene.background,fog=scene.fog,gvis=ground.visible;
+    if(transparent){scene.background=null;scene.fog=null;ground.visible=false;renderer.setClearColor(0x000000,0);}
+    renderer.setPixelRatio(1); renderer.setSize(Math.round(w*scale),Math.round(h*scale),false);
+    renderer.render(scene,camera);
+    const c2=document.createElement('canvas'); c2.width=renderer.domElement.width; c2.height=renderer.domElement.height;
+    const ctx=c2.getContext('2d'); ctx.drawImage(renderer.domElement,0,0); drawChips(ctx,c2.width,c2.height,scale);
+    const blob=await new Promise(r=>c2.toBlob(r,'image/png'));
+    scene.background=bg;scene.fog=fog;ground.visible=gvis;
+    renderer.setPixelRatio(pr); renderer.setSize(w,h); if(selG) selG.visible=selVis; if(ws) ws.material=mWallSel; placeHandles();
+    try{
+      await downloads.save({filename:cur==='all'?'매안초_전체층_3D.png':`매안초_${cur+1}층_3D.png`,data:blob});
+      msg.textContent='저장했습니다.';
+    }catch(e){
+      msg.textContent=e&&e.code==='declined'?'저장을 취소했습니다.':'이 화면에서는 저장할 수 없습니다.';
+    }
+    btn.disabled=false;
+  });
+  const web=document.getElementById('web');
+  web.addEventListener('click',async()=>{
+    web.disabled=true; msg.textContent='웹 앱용 파일 만드는 중…';
+    const html=VIEWER_TPL.replace('/*__MODEL__*/null',JSON.stringify(exportModel()));
+    try{ await downloads.save({filename:'maean-3d-viewer.html',data:html}); msg.textContent='웹 앱용 파일을 저장했습니다.'; }
+    catch(e){ msg.textContent=e&&e.code==='declined'?'저장을 취소했습니다.':'이 화면에서는 저장할 수 없습니다.'; }
+    web.disabled=false;
+  });
+})();
+
+renderer.setAnimationLoop(now=>{
+  if(anim){const k=Math.min(1,(now-anim.t0)/700),e=1-Math.pow(1-k,3);
+    camera.position.lerpVectors(anim.fp,anim.to,e); controls.target.lerpVectors(anim.ft,anim.tt,e); if(k===1)anim=null;}
+  controls.update(); renderer.render(scene,camera); placeChips(); if(wsel) placeHandles();
+});
+</script>
+
+</body>
+</html>
